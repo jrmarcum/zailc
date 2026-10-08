@@ -1,0 +1,52 @@
+zailc
+Copyright (c) 2026 Jon Marcum
+
+zailc's own original code is licensed under the terms of either:
+
+  * the Apache License, Version 2.0 with LLVM Exceptions (see LICENSE-APACHE), or
+  * the MIT license (see LICENSE-MIT),
+
+at your option.
+
+    SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception OR MIT
+
+--------------------------------------------------------------------------------
+Third-party components
+--------------------------------------------------------------------------------
+
+zailc is built on, and translates parts of, the following upstream projects.
+Code incorporated, ported or adapted from any of them is retained under its own
+original license, and every such use is recorded in:
+
+    third_party/LICENSES.md
+
+  * Fil-C  — https://github.com/pizlonator/fil-c
+      - Compiler (clang + LLVM, incl. the FilPizlonator pass):
+          Apache-2.0 WITH LLVM-exception   third_party/fil-c/LLVM-LICENSE.txt
+      - Runtime (libpas + filc runtime), including its build generators:
+          BSD-2-Clause
+          Copyright (c) 2018-2022 Apple Inc.
+          Copyright (c) 2023-2026 Epic Games, Inc.
+          Copyright (c) 2026 Filip Pizlo
+                                            third_party/fil-c/PAS-LICENSE.txt
+      - musl libc (usermusl / yolomusl):
+          MIT                               third_party/fil-c/MUSL-LICENSE.txt
+
+  * Zig — https://codeberg.org/ziglang/zig
+          MIT, Copyright (c) Zig contributors
+                                            third_party/zig/LICENSE
+
+  * zilc — https://github.com/jrmarcum/zilc (same author; the reference and
+    test oracle for zailc). Apache-2.0 WITH LLVM-exception OR MIT.
+
+Where a component is distributed under the Apache License, Version 2.0, this
+NOTICE file (together with the component's own NOTICE, if any) is preserved and
+propagated as required by Section 4 of that license.
+
+BINARY DISTRIBUTIONS: the BSD-2-Clause (Fil-C runtime) and MIT (musl, Zig)
+licenses require their copyright notices to be reproduced in the documentation
+or other materials of any binary distribution. A program that links a runtime
+containing code translated from those components inherits the obligation.
+
+Status: the Component Ledger in third_party/LICENSES.md is the record of what
+has actually been incorporated.

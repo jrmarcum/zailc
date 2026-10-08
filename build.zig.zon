@@ -1,0 +1,19 @@
+.{
+    .name = .zailc,
+    .version = "0.1.0",
+    .fingerprint = 0xac2f7bf318c331b7, // Changing this has security and trust implications.
+    // Pinned: Zig 0.15.2 bundles LLVM 20, the LLVM of Fil-C 0.686, so every translated piece can
+    // be checked against upstream (cmem/design-decisions.md).
+    .minimum_zig_version = "0.15.2",
+    .dependencies = .{},
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "third_party",
+        "LICENSE-MIT",
+        "LICENSE-APACHE",
+        "NOTICE",
+        "README.md",
+    },
+}
