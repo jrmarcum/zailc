@@ -34,11 +34,11 @@ small. Modeled on zilc's `cmem/` (same author), which is modeled on wazmrt's.
      and re-run `link-run.ts` and `corpus-run.ts`. The link-map proof must then cover libc too.
   The program-only form of the gates: `deno run -A tools/runtime/link-run.ts` (about 2 min) and
   `deno run -A tools/runtime/corpus-run.ts` (about 20 min, background it).
+- ✅ **2026-10-09:** W-7's cause CONFIRMED. The pass emits a global's getter ahead of the landing
+  pad. On first use, the getter's slow path sets the frame's origin to one with `can_catch` 0,
+  and the landing pad asserts on it. Proven by IR and by prediction. W-5 FIXED: the musl tree's
+  files are declared inputs of the headers step, proven by an edit, an add and an inversion.
 - **Open, none blocking:**
-  - **W-7:** verify the surmised root cause by reading the pass's output IR for
-    `tests/upstream/filc-0.686-landing-pad-can-catch.cpp`, then update W-7 and
-    `UPSTREAM-ISSUES.md`.
-  - **W-5:** declare the musl tree as an input of the headers step before the Fil-C pin first moves.
   - **`zailc-gen --version`:** releasing.md's preflight wants it (⏳ there).
 - 🧭 **Git state (2026-10-08, night):** `main` is PUSHED and follows the `--no-ff` rule. Every
   push today ran green on GitHub (CI, including `deno check tools/`, and auto-tag with the gate

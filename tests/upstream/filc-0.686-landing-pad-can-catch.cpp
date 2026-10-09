@@ -9,6 +9,11 @@
 //
 // Controls that do NOT panic at -O1: the destructor empty; the destructor `noinline`; the
 // destructor writing through a pointer to a caller's local instead of a global.
+//
+// The mechanism's test: `-DWARM_GLOBAL_FIRST` reads `n` once before the throw, so `n` is already
+// initialised when the landing pad runs and the global getter's slow path (which overwrites the
+// frame's origin) cannot run there:
+//   clang++ -O1 -DWARM_GLOBAL_FIRST ...  -> "start n=0", "caught n=1", exit 0 (no panic)
 #include <cstdio>
 
 static int n = 0;
@@ -23,6 +28,9 @@ static void t() {
 }
 
 int main() {
+#ifdef WARM_GLOBAL_FIRST
+    std::printf("start n=%d\n", n);
+#endif
     try {
         t();
     } catch (int) {

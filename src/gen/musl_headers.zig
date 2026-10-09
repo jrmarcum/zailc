@@ -18,67 +18,84 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const Out = std.ArrayList(u8);
 
-pub fn install(gpa: Allocator, musl_src: []const u8, out_dir: []const u8, arch: []const u8) !void {
+/// One file `install` reads, relative to the musl tree.
+pub const Input = struct {
+    path: []const u8,
+    use: union(enum) {
+        /// Copied as it is to `<out>/<dir>/<basename>`.
+        copy: []const u8,
+        /// The two inputs of `bits/alltypes.h`, in order (arch's, then include's).
+        alltypes,
+        /// The input of `bits/syscall.h`.
+        syscall,
+    },
+};
+
+/// Every file `install` reads, in the order it uses them. This is the ONE enumeration: `install`
+/// works from it, and build.zig declares each file as an input of the step that runs `install`,
+/// so a header changed, added or removed in the musl tree reruns the step instead of reusing a
+/// stale tree from the cache (cmem/workarounds.md W-5). `arena` owns the result.
+pub fn inputs(arena: Allocator, musl_src: []const u8, arch: []const u8) ![]Input {
     var src = try std.fs.cwd().openDir(musl_src, .{});
     defer src.close();
-    var out = try std.fs.cwd().makeOpenPath(out_dir, .{});
-    defer out.close();
+    var list: std.ArrayList(Input) = .empty;
 
     // include/*.h and include/*/*.h (exactly one level of subdirectories, as the Makefile globs).
-    try copyHeaders(src, "include", out, ".");
+    try listHeaders(arena, src, "include", ".", &list);
     {
         var inc = try src.openDir("include", .{ .iterate = true });
         defer inc.close();
         var it = inc.iterate();
         while (try it.next()) |e| {
             if (e.kind != .directory) continue;
-            const from = try std.fs.path.join(gpa, &.{ "include", e.name });
-            defer gpa.free(from);
-            try copyHeaders(src, from, out, e.name);
+            const name = try arena.dupe(u8, e.name);
+            try listHeaders(arena, src, try std.fs.path.join(arena, &.{ "include", name }), name, &list);
         }
     }
     // bits/: generic first, then the architecture's own, which overwrite.
-    try copyHeaders(src, "arch/generic/bits", out, "bits");
-    const arch_bits = try std.fs.path.join(gpa, &.{ "arch", arch, "bits" });
-    defer gpa.free(arch_bits);
-    try copyHeaders(src, arch_bits, out, "bits");
+    try listHeaders(arena, src, "arch/generic/bits", "bits", &list);
+    try listHeaders(arena, src, try std.fs.path.join(arena, &.{ "arch", arch, "bits" }), "bits", &list);
 
-    // The two generated headers.
-    {
-        var text: Out = .empty;
-        defer text.deinit(gpa);
-        const arch_in = try std.fs.path.join(gpa, &.{ "arch", arch, "bits", "alltypes.h.in" });
-        defer gpa.free(arch_in);
-        const a = try readFile(gpa, src, arch_in);
-        defer gpa.free(a);
-        const b = try readFile(gpa, src, "include/alltypes.h.in");
-        defer gpa.free(b);
-        try allTypes(gpa, a, &text);
-        try allTypes(gpa, b, &text);
-        try out.writeFile(.{ .sub_path = "bits/alltypes.h", .data = text.items });
-    }
-    {
-        var text: Out = .empty;
-        defer text.deinit(gpa);
-        const sys_in = try std.fs.path.join(gpa, &.{ "arch", arch, "bits", "syscall.h.in" });
-        defer gpa.free(sys_in);
-        const s = try readFile(gpa, src, sys_in);
-        defer gpa.free(s);
-        try syscallHeader(gpa, s, &text);
-        try out.writeFile(.{ .sub_path = "bits/syscall.h", .data = text.items });
-    }
+    // The inputs of the two generated headers.
+    try list.append(arena, .{ .path = try std.fs.path.join(arena, &.{ "arch", arch, "bits", "alltypes.h.in" }), .use = .alltypes });
+    try list.append(arena, .{ .path = "include/alltypes.h.in", .use = .alltypes });
+    try list.append(arena, .{ .path = try std.fs.path.join(arena, &.{ "arch", arch, "bits", "syscall.h.in" }), .use = .syscall });
+    return list.toOwnedSlice(arena);
 }
 
-/// Copies every `*.h` (not `*.h.in`) in `src/<from>` to `out/<to>`.
-fn copyHeaders(src: std.fs.Dir, from: []const u8, out: std.fs.Dir, to: []const u8) !void {
+pub fn install(gpa: Allocator, musl_src: []const u8, out_dir: []const u8, arch: []const u8) !void {
+    var arena_state: std.heap.ArenaAllocator = .init(gpa);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+
+    var src = try std.fs.cwd().openDir(musl_src, .{});
+    defer src.close();
+    var out = try std.fs.cwd().makeOpenPath(out_dir, .{});
+    defer out.close();
+
+    var alltypes: Out = .empty;
+    var syscall: Out = .empty;
+    for (try inputs(arena, musl_src, arch)) |in| switch (in.use) {
+        .copy => |dir| {
+            var dest = try out.makeOpenPath(dir, .{});
+            defer dest.close();
+            try src.copyFile(in.path, dest, std.fs.path.basename(in.path), .{});
+        },
+        .alltypes => try allTypes(arena, try readFile(arena, src, in.path), &alltypes),
+        .syscall => try syscallHeader(arena, try readFile(arena, src, in.path), &syscall),
+    };
+    try out.writeFile(.{ .sub_path = "bits/alltypes.h", .data = alltypes.items });
+    try out.writeFile(.{ .sub_path = "bits/syscall.h", .data = syscall.items });
+}
+
+/// Lists every `*.h` (not `*.h.in`) in `src/<from>`, to be copied to `<out>/<to>`.
+fn listHeaders(arena: Allocator, src: std.fs.Dir, from: []const u8, to: []const u8, list: *std.ArrayList(Input)) !void {
     var dir = try src.openDir(from, .{ .iterate = true });
     defer dir.close();
-    var dest = try out.makeOpenPath(to, .{});
-    defer dest.close();
     var it = dir.iterate();
     while (try it.next()) |e| {
         if (e.kind != .file or !std.mem.endsWith(u8, e.name, ".h")) continue;
-        try dir.copyFile(e.name, dest, e.name, .{});
+        try list.append(arena, .{ .path = try std.fs.path.join(arena, &.{ from, e.name }), .use = .{ .copy = to } });
     }
 }
 
