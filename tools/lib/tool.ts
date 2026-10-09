@@ -95,7 +95,13 @@ export async function linuxOnly(meta: ImportMeta): Promise<void> {
   if (Deno.build.os === "linux") return;
   if (!isWindows) throw new Error(`${meta.url}: needs Linux, or Windows with WSL`);
   const script = wslPath(slashes(fromFileUrl(meta.url)));
-  const fwd = Object.entries(Deno.env.toObject()).filter(([k]) => FORWARD.test(k)).map(([k, v]) => `${k}=${v}`);
+  // A Windows path (`C:\…`, `C:/…`) is never right inside WSL: Windows' own ZIG_LOCAL_CACHE_DIR
+  // reached a WSL `zig cc` as a relative directory name and broke CMake's compiler detection
+  // (cmem/workarounds.md W-9). Such values are not forwarded, and the tool says so.
+  const isWindowsPath = (v: string) => /^[A-Za-z]:[\\/]/.test(v);
+  const env = Object.entries(Deno.env.toObject()).filter(([k]) => FORWARD.test(k));
+  for (const [k, v] of env) if (isWindowsPath(v)) console.error(`note: not forwarding ${k}=${v} into WSL (a Windows path)`);
+  const fwd = env.filter(([, v]) => !isWindowsPath(v)).map(([k, v]) => `${k}=${v}`);
   const { code } = await new Deno.Command("wsl.exe", {
     args: ["-e", "env", ...fwd, "sh", "-c", 'exec "$HOME/.deno/bin/deno" run -A "$0" "$@"', script, ...Deno.args],
     stdin: "inherit", stdout: "inherit", stderr: "inherit",

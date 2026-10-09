@@ -28,10 +28,16 @@ small. Modeled on zilc's `cmem/` (same author), which is modeled on wazmrt's.
   Zig's clang with configure's clang flags; upstream's release used GCC 12.3. Every member defines
   upstream's symbols, binding included; the GCC-vs-clang residue is W-8, ratcheted. With them in
   the overlay: `link-run` 12/12, zilc's corpus all matching (`testing.md`).
-- **Resume with:** step 2, **compiler-rt builtins** (`libyolort.a`, `crtbegin.o`, `crtend.o`;
-  upstream: `build_compiler_rt.sh`, CMake with builtins and crt on). The static link uses all
-  three, and `libyoloc.so` needs libyolort as its `LIBCC`. Then yolo musl's shared half
-  (`libyoloc.so`, `ld-fil1`). Same method each time: an importer for upstream's lists, a
+- ✅ **2026-10-09: compiler-rt from `zig build compiler-rt`**: `libyolort.a` (167 members,
+  upstream's names and order), `crtbegin.o`, `crtend.o`, with compiler-rt's own CMake answer for Zig's
+  clang. Found: **Fil-C 0.686 converts `_Float16` wrongly** (its GCC-11.4-built libyolort reads the
+  wrong register; W-10, `UPSTREAM-ISSUES.md` Fil-C 2). Owner: keep the fix, a recorded departure
+  pinned on both sides by `tests/link/half_float.c`. Now every stock-compiled runtime piece in a
+  static link is ours; only the Fil-C-compiled libc and the five fil-pizlo objects remain upstream's.
+- **Resume with:** step 2, **yolo musl's shared half** (`libyoloc.so` from the `.lo` objects +
+  `ldso/dlstart`, `ldso/dynlink`, linked `-shared -Wl,-e,_dlstart` with LDFLAGS_AUTO and libyolort as
+  `LIBCC`; `ld-fil1-x86_64.so` a link to it). Then the three Fil-C-compiled pieces. Same method each
+  time: an importer for upstream's lists, a
   `verify-*.ts` symbol oracle against the tarball, then into the overlay with `link-run.ts`
   (about 2 min) and `corpus-run.ts` (about 20 min, in the background).
 - ✅ **2026-10-09:** W-7's cause CONFIRMED. The pass emits a global's getter ahead of the landing

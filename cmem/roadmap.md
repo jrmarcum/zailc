@@ -46,8 +46,12 @@ same objects or same behaviour where code is compiled.
       `-nostdlib -shared -Wl,-e,_dlstart` with LDFLAGS_AUTO and `LIBCC` = libyolort) and
       `ld-fil1-x86_64.so` (a link to it). Needs libyolort (next item) for `LIBCC`. Oracle: the
       tarball's `libyoloc.so` (dynamic symbols) and a dynamically linked Fil-C program.
-- [ ] **compiler-rt builtins** (`libyolort.a`, `crtbegin.o`, `crtend.o`) through `build.zig`, or
-      Zig's own compiler_rt plus `cpu_model/x86.c`; decide by what `__cpu_indicator_init` needs.
+- [x] **compiler-rt through `build.zig`** (2026-10-09): `zig build compiler-rt` builds `libyolort.a`
+      (167 members: upstream's names, in upstream's order), `crtbegin.o`, `crtend.o`. The sources
+      and flags are compiler-rt's CMake's for Zig's clang (`import-compiler-rt-sources.ts`). Oracle:
+      `verify-compiler-rt.ts` (W-8's GCC-vs-clang residue ratcheted). In the overlay: `link-run.ts`
+      13/13, and zilc's corpus (`testing.md`). Fixed on the way: Fil-C's `_Float16` defect (W-10, a
+      recorded departure).
 - [ ] **The three Fil-C-compiled pieces** (`filc/src` ~2.5k lines, user libc ~102k, libc++ /
       libc++abi): through Fil-C's clang inside `zig build` as a development bridge only; they
       ship compiled by zailc's own pass (step 3). Nothing upstream-built ships (owner, 2026-10-08,

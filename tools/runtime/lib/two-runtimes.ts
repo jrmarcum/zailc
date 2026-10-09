@@ -6,7 +6,8 @@
 //   prepareOverlay()  builds what zailc builds of the runtime (`zig build libpas`, `zig build
 //                     yolomusl`) and the overlay directory: libpizlo.a = our 178 libpas objects +
 //                     the release tarball's five Fil-C-compiled fil-pizlo-*.o; our libyolounwind.a,
-//                     libyoloc.a and libyolom.a (each checked by hash to be ours, not upstream's).
+//                     libyoloc.a, libyolom.a and libyolort.a (each checked by hash to be ours, not
+//                     upstream's).
 //   linkTwo()         links the same objects twice with the static link line Fil-C's own driver
 //                     would run (`-static -###`): stock (unchanged, upstream's runtime) and ours
 //                     (`-L <overlay>` first; OUR filc_crt.o and yolo musl crt objects). The link
@@ -19,15 +20,15 @@
 //
 // Static on purpose: Fil-C's libc.so NEEDS libpizlo.so, so a dynamic program would load
 // upstream's runtime at run time whatever it was linked against. The tarball's remaining pieces
-// (the Fil-C-compiled libc, libyolort, crtbegin.o/crtend.o, the five fil-pizlo objects) are
-// scaffolding, replaced by roadmap items.
+// (the Fil-C-compiled libc and the five fil-pizlo objects) are scaffolding, replaced by roadmap
+// items.
 
 import { REPO, WORK, filcPrebuilt, mkdirp, must, requireFilcSrc, rmrf, run, sha256, zig, zigCacheArgs } from "../../lib/tool.ts";
 
 /** The crt objects zailc builds (yolo musl's, and filc_crt.o from libpas's step). */
-const OUR_CRT = ["filc_crt.o", "crt1.o", "Scrt1.o", "rcrt1.o", "crti.o", "crtn.o"];
+const OUR_CRT = ["filc_crt.o", "crt1.o", "Scrt1.o", "rcrt1.o", "crti.o", "crtn.o", "crtbegin.o", "crtend.o"];
 /** The archives the overlay holds, all ours except libpizlo.a's five fil-pizlo members. */
-const OUR_ARCHIVES = ["libyolounwind.a", "libyoloc.a", "libyolom.a"];
+const OUR_ARCHIVES = ["libyolounwind.a", "libyoloc.a", "libyolom.a", "libyolort.a"];
 
 export interface Overlay {
   prebuilt: string;
@@ -46,7 +47,7 @@ export async function prepareOverlay(base: string): Promise<Overlay> {
   const out = `${WORK}/out`;
   const overlay = `${base}/overlay`;
 
-  for (const step of ["libpas", "yolomusl"]) {
+  for (const step of ["libpas", "yolomusl", "compiler-rt"]) {
     const b = await run([zig(), "build", step, `-Dfilc-src=${src}`, `-Dpizfix=${prebuilt}/pizfix`, "--prefix", out, ...zigCacheArgs()], { cwd: REPO, inherit: true });
     if (b.code !== 0) {
       console.log(`FAILED: zig build ${step}`);
@@ -98,7 +99,7 @@ const reEscape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
  *  contributes, so the raw matches are not a count). */
 const membersOf = (map: string, archive: RegExp) => [...new Set([...map.matchAll(archive)].map((x) => x[1]))];
 /** A member's stem: `free.lo` (upstream) and `/…/zig-cache/o/<hash>/free.o` (ours) are both `free`. */
-const stem = (m: string) => m.split("/").pop()!.replace(/^pas-pizlo-release-/, "").replace(/\.l?o$/, "");
+const stem = (m: string) => m.split("/").pop()!.replace(/^pas-pizlo-release-/, "").replace(/\.l?o$/, "").replace(/\.(c|S|s)$/, "");
 /** By stem, each once: upstream's map cannot tell its two `clone.lo` apart by name either. */
 const stems = (xs: string[]) => [...new Set(xs.map(stem))].sort().join(" ");
 
@@ -160,6 +161,9 @@ export async function linkTwo(ov: Overlay, driver: string, objects: string[], di
   }
   if (stems(oursPizlo) !== stems(stockPizlo)) return { ok: false, why: `libpizlo members differ: ours ${oursPizlo.length}, stock ${stockPizlo.length}` };
   if (stems(oursYoloc) !== stems(stockYoloc)) return { ok: false, why: `libyoloc members differ: ours ${oursYoloc.length}, stock ${stockYoloc.length}` };
+  const oursYolort = membersOf(om, archive(ov.overlay, "libyolort"));
+  const stockYolort = membersOf(sm, archive(/\/pizfix\/lib/, "libyolort"));
+  if (stems(oursYolort) !== stems(stockYolort)) return { ok: false, why: `libyolort members differ: ours ${oursYolort.length}, stock ${stockYolort.length}` };
   return { ok: true, stock: `${dir}/stock`, ours: `${dir}/ours`, members: oursPizlo.length, yolocMembers: oursYoloc.length, crt: swapped };
 }
 

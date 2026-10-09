@@ -32,21 +32,27 @@ if (only.length && tests.length !== only.length) {
 }
 
 // Each `// expect: exit N [with <flags>]` line is one variant of the program (default flags -O1).
-const variants: { file: string; name: string; flags: string[]; expect: number }[] = [];
+// A `// departure W-n: stock exit N` line marks a RECORDED departure from upstream (an upstream defect
+// zailc corrects; owner's decision, workarounds.md W-n): ours must exit as expected, and stock must
+// still behave as the defect says (exit N, the same on both runs), so the departure is pinned on
+// both sides; the outputs are not compared. When upstream fixes it, the stock half fails.
+const variants: { file: string; name: string; flags: string[]; expect: number; departure?: { why: string; stockExit: number } }[] = [];
 for (const file of tests) {
   const text = await Deno.readTextFile(`${REPO}/tests/link/${file}`);
   const lines = [...text.matchAll(/^\/\/ expect: exit (\d+)(?: with (.+))?$/gm)];
   if (!lines.length) throw new Error(`${file}: no "// expect: exit N" line`);
+  const dep = text.match(/^\/\/ departure (W-\d+): stock exit (\d+)$/m);
+  const departure = dep ? { why: dep[1], stockExit: Number(dep[2]) } : undefined;
   for (const m of lines) {
     const flags = m[2] ? m[2].trim().split(/\s+/) : ["-O1"];
     const stem = file.replace(/\.(c|cpp)$/, "");
-    variants.push({ file, name: lines.length > 1 ? `${stem}${flags.join("")}` : stem, flags, expect: Number(m[1]) });
+    variants.push({ file, name: lines.length > 1 ? `${stem}${flags.join("")}` : stem, flags, expect: Number(m[1]), departure });
   }
 }
 
-let pass = 0, fail = 0;
+let pass = 0, fail = 0, passedDepartures = 0;
 const runEnv = ["env", "-i", "PATH=/usr/bin:/bin", "timeout", TIMEOUT];
-for (const { file, name, flags, expect } of variants) {
+for (const { file, name, flags, expect, departure } of variants) {
   const cc = `${ov.prebuilt}/build/bin/${file.endsWith(".cpp") ? "clang++" : "clang"}`;
   const dir = `${base}/${name}`;
   await mkdirp(dir);
@@ -69,8 +75,12 @@ for (const { file, name, flags, expect } of variants) {
   const o1 = await exec(linked.ours);
   const problems: string[] = [];
   if (s1.code !== s2.code || s1.out !== s2.out) problems.push("VARIES: the stock binary differs between two runs");
-  if (o1.code !== s1.code) problems.push(`exit: ours ${o1.code}, stock ${s1.code}`);
-  if (o1.out !== s1.out) problems.push("output differs from stock");
+  if (departure) {
+    if (s1.code !== departure.stockExit) problems.push(`stock exit ${s1.code}, but ${departure.why} records ${departure.stockExit} (fixed upstream? then remove the departure)`);
+  } else {
+    if (o1.code !== s1.code) problems.push(`exit: ours ${o1.code}, stock ${s1.code}`);
+    if (o1.out !== s1.out) problems.push("output differs from stock");
+  }
   if (o1.code !== expect) problems.push(`exit ${o1.code}, expected ${expect}`);
   if (problems.length) {
     fail++;
@@ -78,10 +88,12 @@ for (const { file, name, flags, expect } of variants) {
     console.log(`  --- stock (exit ${s1.code}):\n${s1.out.trimEnd()}\n  --- ours (exit ${o1.code}):\n${o1.out.trimEnd()}`);
   } else {
     pass++;
+    if (departure) passedDepartures++;
     const first = o1.out.split("\n")[0];
-    console.log(`ok   ${name}: exit ${o1.code}, output identical to stock (${o1.out.length} bytes; "${first}"); ${linked.members} libpizlo + ${linked.yolocMembers} libyoloc members, as stock; our ${linked.crt.join(" ")}`);
+    const how = departure ? `DEPARTURE ${departure.why}: stock exit ${s1.code} as recorded, ours correct` : `output identical to stock (${o1.out.length} bytes; "${first}")`;
+    console.log(`ok   ${name}: exit ${o1.code}, ${how}; ${linked.members} libpizlo + ${linked.yolocMembers} libyoloc members, as stock; our ${linked.crt.join(" ")}`);
   }
 }
 
-console.log(`\n${tests.length} programs, ${variants.length} variants: ${pass} identical to stock, ${fail} failed`);
+console.log(`\n${tests.length} programs, ${variants.length} variants: ${pass} passed (${pass - passedDepartures} identical to stock, ${passedDepartures} recorded departures), ${fail} failed`);
 Deno.exit(fail === 0 && pass === variants.length && variants.length > 0 ? 0 : 1);

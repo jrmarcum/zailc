@@ -3,6 +3,7 @@ const std = @import("std");
 const libpas_sources = @import("src/runtime/libpas_sources.zig");
 const musl_headers = @import("src/gen/musl_headers.zig");
 const yolomusl_sources = @import("src/runtime/yolomusl_sources.zig");
+const compiler_rt_sources = @import("src/runtime/compiler_rt_sources.zig");
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
@@ -67,6 +68,54 @@ pub fn build(b: *std.Build) void {
         buildYoloMusl(b, yolomusl_step, gen, src);
     } else {
         yolomusl_step.dependOn(&b.addFail("zig build yolomusl needs -Dfilc-src=<path to a Fil-C v0.686 tree>").step);
+    }
+
+    // `zig build compiler-rt -Dfilc-src=<Fil-C tree>`: Fil-C's compiler-rt as upstream's
+    // build_compiler_rt.sh installs it: the builtins archive as libyolort.a, and crtbegin.o /
+    // crtend.o. Sources and flags: src/runtime/compiler_rt_sources.zig (read from compiler-rt's own
+    // CMake configure, run with Zig's clang).
+    const crt_step = b.step("compiler-rt", "Build Fil-C's compiler-rt from -Dfilc-src: libyolort.a, crtbegin.o, crtend.o");
+    if (filc_src) |src| {
+        buildCompilerRt(b, crt_step, src);
+    } else {
+        crt_step.dependOn(&b.addFail("zig build compiler-rt needs -Dfilc-src=<path to a Fil-C v0.686 tree>").step);
+    }
+}
+
+/// compiler-rt's builtins and crt objects, as its CMake build compiles them for Zig's clang. Upstream's
+/// release built them with GCC 11.4 (cmem/design-decisions.md). CMake configured them for
+/// x86_64-linux-gnu with the host's libc headers; here Zig's glibc headers stand in.
+fn buildCompilerRt(b: *std.Build, step: *std.Build.Step, filc_src: []const u8) void {
+    const cs = compiler_rt_sources;
+    const dir: std.Build.LazyPath = .{ .cwd_relative = b.pathJoin(&.{ filc_src, "compiler-rt", "lib", "builtins" }) };
+    const module = struct {
+        fn f(bb: *std.Build) *std.Build.Module {
+            return bb.createModule(.{
+                .target = bb.resolveTargetQuery(.{ .cpu_arch = .x86_64, .os_tag = .linux, .abi = .gnu, .cpu_model = .baseline }),
+                .optimize = .ReleaseFast, // the -O level is in the flags (-O3; crt: -O0)
+                .pic = true,
+                .sanitize_c = .off,
+                .strip = true, // CMAKE_BUILD_TYPE=Release and the crt commands pass no -g
+                .link_libc = true, // libc HEADERS only (stdint.h, ...), as the host's were for CMake
+            });
+        }
+    }.f;
+
+    const builtins = module(b);
+    for (cs.builtins) |m| builtins.addCSourceFile(.{ .file = dir.path(b, m.path), .flags = if (m.asm_) &cs.asm_flags else &cs.c_flags });
+    const lib = b.addLibrary(.{ .name = "yolort", .root_module = builtins, .linkage = .static });
+    step.dependOn(&b.addInstallArtifact(lib, .{}).step);
+
+    for ([_]struct { name: []const u8, path: []const u8, flags: []const []const u8 }{
+        .{ .name = "crtbegin", .path = cs.crtbegin_path, .flags = &cs.crtbegin_flags },
+        .{ .name = "crtend", .path = cs.crtend_path, .flags = &cs.crtend_flags },
+    }) |o| {
+        const m = module(b);
+        // CMake's custom command passes no -O: the compiler's default, -O0.
+        const flags = std.mem.concat(b.allocator, []const u8, &.{ o.flags, &.{"-O0"} }) catch @panic("OOM");
+        m.addCSourceFile(.{ .file = dir.path(b, o.path), .flags = flags });
+        const obj = b.addObject(.{ .name = o.name, .root_module = m });
+        step.dependOn(&b.addInstallFile(obj.getEmittedBin(), b.fmt("lib/{s}.o", .{o.name})).step);
     }
 }
 
