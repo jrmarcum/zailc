@@ -30,6 +30,9 @@ small. Modeled on zilc's `cmem/` (same author), which is modeled on wazmrt's.
   signature tables are IMPORTED from upstream's file by `tools/gen/import-signatures.ts`, not typed;
   `zig build test` checks the SHA-256 of both outputs against Ruby's; `tools/gen/verify-forwarders.ts`
   diffs against a live Ruby run. Results: `testing.md`.
+- 🔖 **Release rules adopted from binaryang** (owner, 2026-10-08; zilc keeps its own scheme).
+  `build.zig.zon` stays at the released version, and a bump is only ever the owner's decision.
+  `releasing.md`; changes waiting for a release go in `unreleased.md`.
 - ▶️ **NEXT (step 2, in order):** (1) `find_clang_include_dir.rb` becomes "Zig's own
   `lib/include`" in `build.zig` (no port needed; decision recorded); (2) `build.zig` compiles the
   stock-compiled half of Fil-C's runtime that zilc proved buildable by Zig alone (yolo musl, libpas's
@@ -49,7 +52,9 @@ small. Modeled on zilc's `cmem/` (same author), which is modeled on wazmrt's.
 | [roadmap.md](roadmap.md) | Step 2 and step 3 broken into checkable items; what the cosmo evaluation and platform scope leave for zailc |
 | [oracle.md](oracle.md) | How zilc and Fil-C serve as the oracle: trees, versions, hashes, the comparison procedure |
 | [upstream.md](upstream.md) | Pinned Fil-C (v0.686, `163fae5`) and Zig (0.15.2); where they live on the development machine |
+| [releasing.md](releasing.md) | 🔖 Release rules, adopted from binaryang 2026-10-08: semver from `0.1.0`, patch default / MINOR for breaks, cap at 9, merge unbumped then bump on the owner's go, patch-from-branch, preflight, CI-only binaries. zilc keeps its own scheme |
+| [unreleased.md](unreleased.md) | What `main` holds beyond the last release; becomes `CHANGELOG.md` § version at release |
 | [testing.md](testing.md) | The gates and their last results |
 | [workarounds.md](workarounds.md) | Every workaround and its WHY (template, families); look new failures up here first |
-| [best-practices.md](best-practices.md) | Rules of work carried over from zilc, including the SentinelOne / WSL-only rule |
+| [best-practices.md](best-practices.md) | Rules of work selected from zilc and binaryang (2026-10-08): this machine (SentinelOne / WSL-only), proving a port against the oracle, upstreams and claims, defects, tests and gates, records, git |
 | [licensing.md](licensing.md) | Dual licence, and why a translation project must keep upstream's notices on every ported file |

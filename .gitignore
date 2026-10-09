@@ -1,0 +1,5 @@
+# Zig's caches and outputs normally live in ~/zailc-work (cmem/best-practices.md); these catch a
+# build run without --cache-dir.
+.zig-cache/
+zig-out/
+*.o

@@ -1,0 +1,22 @@
+# Unreleased on `main` — what the next release note must say
+
+**As of 2026-10-08: nothing has been released.** `build.zig.zon` reads `0.1.0`, there is no tag,
+and there is no remote. The first release will be `v0.1.0`, whenever the owner decides. Rules:
+[releasing.md](releasing.md).
+
+## How to use this file
+
+Add an entry when a change on `main` is one a release note must carry, and say which kind:
+
+- ⚠️ **BREAKING**: a removed or renamed public name (CLI command or flag, build option, exported
+  declaration, env var), a changed default, or a changed output. This makes the release a MINOR.
+- Plain: added, fixed or changed with no break. A PATCH is enough.
+
+At release the entries move to `CHANGELOG.md` § that version, and this file folds back to its
+header.
+
+## Since the start (for 0.1.0)
+
+- `zailc-gen`: Zig port of Fil-C's `generate_pizlonated_forwarders.rb` (v0.686, 453 native + 13
+  user signatures). It writes `filc_native.h` and `filc_native_forwarders.c`, byte-identical to
+  Ruby's output (`testing.md`).
