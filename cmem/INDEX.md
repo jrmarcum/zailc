@@ -33,11 +33,22 @@ small. Modeled on zilc's `cmem/` (same author), which is modeled on wazmrt's.
 - 🔖 **Release rules adopted from binaryang** (owner, 2026-10-08; zilc keeps its own scheme).
   `build.zig.zon` stays at the released version, and a bump is only ever the owner's decision.
   `releasing.md`; changes waiting for a release go in `unreleased.md`.
-- ▶️ **NEXT (step 2, in order):** (1) `find_clang_include_dir.rb` becomes "Zig's own
-  `lib/include`" in `build.zig` (no port needed; decision recorded); (2) `build.zig` compiles the
-  stock-compiled half of Fil-C's runtime that zilc proved buildable by Zig alone (yolo musl, libpas's
-  179 C objects + `.S`, `filc_crt.o`, crtbegin/end, `libyolounwind`, compiler-rt builtins), checked
-  against zilc's prebuilt `libpizlo.a` objects; (3) the three Fil-C-compiled pieces through Fil-C's
+- ✅ **Step 2, the stock half of Fil-C's runtime builds from `zig build` (2026-10-08, evening).**
+  `zig build libpas -Dfilc-src=<Fil-C tree> -Dpizfix=<pizfix>` compiles upstream's libpas with
+  upstream's own flags under Zig's clang (174 C files from `common.mk`, the generated
+  `filc_native_forwarders.c`, the `.S`, the static-variant pair: 178 objects, `-W -Werror` clean),
+  plus `filc_crt.o`, `filc_mincrt.o` and `libyolounwind.a`. Its headers come from
+  **`zailc-gen musl-headers`**, a port of musl's `make install-headers`, byte-identical to
+  upstream's (219 files). **Oracle:** every object defines exactly the global symbols the release
+  tarball's upstream-built objects define (177 of 178 identical in undefined symbols too; the one
+  difference is an undefined `pas_panic` reference, `workarounds.md` W-4). Nothing is copied from
+  the Fil-C tree and nothing is written into it. Tests 11/11. Details: `testing.md`, `oracle.md`.
+- ▶️ **NEXT (step 2, in order):** (1) **link and run**: a Fil-C program linked from zailc's
+  `libpizlo-stock.a` + the five Fil-C-compiled `fil-pizlo-*.o` (from the tarball's `libpizlo.a`
+  for now) + the tarball's `libyoloc`/`libyolort`/crt files, must run and trap out-of-bounds like
+  zilc's; then zilc's corpus against it; (2) **yolo musl's libraries** (`libyoloc.a`/`.so`, crt
+  files, 1,515 C + 283 asm, the arch-override rule) through `build.zig`; (3) **compiler-rt
+  builtins** (`libyolort.a`, crtbegin/end); (4) the three Fil-C-compiled pieces through Fil-C's
   clang inside `zig build`, as the interim the brief names. Then step 3, the pass. `roadmap.md`.
 
 ---

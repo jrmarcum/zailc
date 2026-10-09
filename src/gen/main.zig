@@ -1,17 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception OR MIT
 //! `zailc-gen`: the generators Fil-C's runtime build needs, in Zig.
 //!
-//!   zailc-gen header <out.h>          write filc_native.h
-//!   zailc-gen forwarders <out.c>      write filc_native_forwarders.c
-//!   zailc-gen <path>                  as upstream's Ruby invocation: the path decides by its
-//!                                    basename (filc_native.h / filc_native_forwarders.c)
+//!   zailc-gen header <out.h>                      write filc_native.h
+//!   zailc-gen forwarders <out.c>                  write filc_native_forwarders.c
+//!   zailc-gen <path>                              as upstream's Ruby invocation: the path decides
+//!                                                 by its basename
+//!   zailc-gen musl-headers <musl-src> <out-dir> [arch]
+//!                                                 musl's `make install-headers` (yolo-include)
 const std = @import("std");
 const forwarders = @import("forwarders.zig");
+const musl_headers = @import("musl_headers.zig");
 
 const usage =
     \\usage: zailc-gen header <out.h>
     \\       zailc-gen forwarders <out.c>
     \\       zailc-gen <path ending in filc_native.h or filc_native_forwarders.c>
+    \\       zailc-gen musl-headers <musl-src> <out-dir> [arch=x86_64]
     \\
 ;
 
@@ -20,6 +24,10 @@ const Kind = enum { header, forwarders };
 pub fn main() !void {
     const gpa = std.heap.page_allocator;
     const args = try std.process.argsAlloc(gpa);
+    if (args.len >= 4 and std.mem.eql(u8, args[1], "musl-headers")) {
+        const arch = if (args.len >= 5) args[4] else "x86_64";
+        return musl_headers.install(gpa, args[2], args[3], arch);
+    }
     var kind: ?Kind = null;
     var path: []const u8 = "";
     if (args.len == 3) {
