@@ -79,7 +79,7 @@ for (const { file, name, flags, expect } of variants) {
   } else {
     pass++;
     const first = o1.out.split("\n")[0];
-    console.log(`ok   ${name}: exit ${o1.code}, output identical to stock (${o1.out.length} bytes; "${first}"); ${linked.members} libpizlo members, as stock`);
+    console.log(`ok   ${name}: exit ${o1.code}, output identical to stock (${o1.out.length} bytes; "${first}"); ${linked.members} libpizlo + ${linked.yolocMembers} libyoloc members, as stock; our ${linked.crt.join(" ")}`);
   }
 }
 
