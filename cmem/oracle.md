@@ -11,7 +11,7 @@ through stock).
 | --- | --- | --- |
 | a generated file (`filc_native.h`, `filc_native_forwarders.c`) | Ruby's output from the pinned Fil-C tree | `cmp`: byte-identical. SHA-256 pinned in the Zig tests; `tools/gen/verify-forwarders.ts` reruns Ruby |
 | a generated header tree (`yolo-include`) | musl's `./configure && make install-headers` on the pinned `projects/yolomusl` | `diff -r`: identical trees (`tools/gen/verify-musl-headers.ts`) |
-| a compiled runtime object (step 2) | the release tarball's objects, built by upstream (`pizfix/lib/libpizlo.a` members `pas-pizlo-release-*.o`, `filc_crt.o`, `filc_mincrt.o`, `libyolounwind.a`) | the set of DEFINED global symbols per object must be equal; undefined symbols reported (`tools/runtime/verify-libpas.ts`; the why of this level: `design-decisions.md`). Then behaviour: link, run, trap; zilc's corpus and Fil-C's test suite against zailc's objects |
+| a compiled runtime object (step 2) | the release tarball's objects, built by upstream (`pizfix/lib/libpizlo.a` members `pas-pizlo-release-*.o`, `filc_crt.o`, `filc_mincrt.o`, `libyolounwind.a`) | the set of DEFINED global symbols per object must be equal; undefined-symbol differences only as listed in `KNOWN_UNDEF_DIFFS`, and every upstream object needs one of ours (`tools/runtime/verify-libpas.ts`; the why of this level: `design-decisions.md`). Then behaviour: link, run, trap; zilc's corpus and Fil-C's test suite against zailc's objects |
 | IR after the pass (step 3) | Fil-C's clang on the same input module (`-S -emit-llvm` after the pass) | textual diff modulo names, then behaviour: zilc's corpus and Fil-C's suite |
 
 ## Where the oracle lives on the development machine (inside WSL)

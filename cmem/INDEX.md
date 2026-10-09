@@ -19,10 +19,13 @@ small. Modeled on zilc's `cmem/` (same author), which is modeled on wazmrt's.
 ## ▶️ 2026-10-08 — DAY ONE. START HERE
 
 - 🧭 **Git state at the end of day one (2026-10-08, late evening):** remote `main` =
-  `First publish` (`8a73338`); local `main` = three unpushed `--no-ff` merges (release rules, the
-  CI/release workflows, step 2's stock runtime); branch `step2/stock-runtime` pushed to the
-  remote. No tag: **the next push of `main` releases `v0.1.0`** (`releasing.md`, owner's call).
-  Several sessions commit here concurrently: re-read `git log` before merging into `main`.
+  `First publish` (`8a73338`); local `main` is ahead and unpushed, by `--no-ff` merges only
+  (release rules, the CI/release workflows, step 2's stock runtime, the day-one state, the
+  day-one review fixes). Branches on the remote: `step2/stock-runtime`, `docs/state-2026-10-08`.
+  No tag: **the next push of `main` releases `v0.1.0`** (`releasing.md`, owner's call). Check
+  rather than trust this line: `git log --oneline --first-parent origin/main..main`,
+  `git branch -r`, `git tag`. Several sessions commit here concurrently: re-read `git log`
+  before merging into `main`.
 
 - 🌱 **zailc started** (owner, 2026-10-05: "we will zag where they zig"; 2026-10-08: "Proceed with
   the zig-filc-scope.md and platforms.md brief"). The brief is `scope.md` (copied from zilc with

@@ -70,6 +70,9 @@ found**, **Recognising a relative**, **Cost and exit**, **Where**.
 - **Exit.** Re-check at the link-and-run item: if behaviour matches (zilc's corpus, Fil-C's suite),
   it stays an observation. If a test differs around chunk-map entries, diff the two objects'
   disassembly (`objdump -d`) first.
+- **Ratchet.** Listed in `verify-libpas.ts` `KNOWN_UNDEF_DIFFS` as exactly `+ -pas_panic`. Any
+  other undefined difference fails the gate, and so does this one disappearing; if it goes, remove
+  the entry and close this one in the same commit.
 - **Where.** `testing.md` results; `tools/runtime/verify-libpas.ts`.
 
 ### W-5. The `musl-headers` run step is cached by its arguments, not by the musl tree (2026-10-08)
@@ -82,5 +85,6 @@ found**, **Recognising a relative**, **Cost and exit**, **Where**.
 - **Fix today.** None needed while the pin is fixed; `verify-musl-headers.ts` regenerates into
   `$WORK/gen` outside the cache. **Exit:** declare the tree as an input (hash its header files
   into the step, or make zailc-gen print a manifest the step depends on) when the pin first
-  moves; or clear `~/zailc-work/zig-cache`.
+  moves; or clear `~/zailc-work/zig-cache`. The cache clear is step 3 of `upstream.md`
+  § "Moving the pins".
 - **Where.** `build.zig` `buildStockRuntime` (`headers`).

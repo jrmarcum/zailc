@@ -21,9 +21,10 @@ and why the version bump is a separate, deliberate commit.
 **Current state (2026-10-08, late evening):** version `0.1.0` in `build.zig.zon`; nothing
 released, no tag. The remote `github.com/jrmarcum/zailc` exists; its `main` is still the
 `First publish` commit (`8a73338`, pushed BEFORE the workflows existed, so nothing ran). Local
-`main` is three `--no-ff` merges ahead and unpushed: the release rules, the CI/release workflows,
-and step 2 (the stock half of the runtime). The branch `step2/stock-runtime` is pushed (a branch
-push triggers nothing). ⚠️ **The NEXT push of `main` releases `v0.1.0`** and is the first time the
+`main` is ahead and unpushed, by `--no-ff` merges only (`git log --oneline --first-parent
+origin/main..main`): the release rules, the CI/release workflows, step 2 (the stock half of the
+runtime), the day-one state and the day-one review fixes. The branches `step2/stock-runtime` and
+`docs/state-2026-10-08` are on the remote (a branch push triggers nothing). ⚠️ **The NEXT push of `main` releases `v0.1.0`** and is the first time the
 workflows run on GitHub, because no tag exists yet. Push only when `0.1.0` is meant to ship, or
 bump first. The first release is the owner's decision. Several sessions commit to this repo
 concurrently: re-read `git log` before merging into `main`.

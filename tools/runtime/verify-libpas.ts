@@ -3,8 +3,10 @@
 // Proves the libpas objects `zig build libpas` produces against upstream's, at the symbol level:
 // for every object in zailc's libpizlo-stock.a, the matching `pas-pizlo-release-<name>.o` in the
 // Fil-C release tarball's libpizlo.a (built by upstream with its clang) must DEFINE the same
-// global symbols. Undefined symbols are compared too and reported, but only as information:
-// compiler-rt helper calls may legitimately differ between compilers.
+// global symbols. Undefined symbols may legitimately differ between compilers (Zig's clang 20.1.2
+// against Fil-C's 20.1.8), so they are compared against a RATCHET: each known difference is listed
+// in KNOWN_UNDEF_DIFFS with its cmem/workarounds.md entry. A new difference fails, and so does a
+// listed one that has gone, so the list and the record cannot go stale.
 //
 //   deno run -A tools/runtime/verify-libpas.ts        (from Windows or Linux; runs in WSL)
 
@@ -39,6 +41,13 @@ async function symbols(obj: string, flags: string[]): Promise<Set<string>> {
 }
 const diff = (a: Set<string>, b: Set<string>) => [...a].filter((x) => !b.has(x)).sort();
 
+// The known undefined-symbol differences, exactly as printed below ("+<ours only> -<theirs only>").
+const KNOWN_UNDEF_DIFFS: Record<string, string> = {
+  "verse_heap_chunk_map_entry.o": "+ -pas_panic", // workarounds.md W-4
+};
+const seenKnown = new Set<string>();
+let unknownUndef = 0;
+
 let objects = 0, same = 0, missingRef = 0, defMismatch = 0, undefMismatch = 0;
 const names: string[] = [];
 for await (const e of Deno.readDir(ours)) if (e.isFile && e.name.endsWith(".o")) names.push(e.name);
@@ -66,11 +75,23 @@ for (const name of names) {
     console.log(`DEFINED DIFFERS  ${name}: +${extraDef.join(",")} -${missingDef.join(",")}`);
   } else if (extraUndef.length || missingUndef.length) {
     undefMismatch++;
-    console.log(`undefined differ ${name}: +${extraUndef.join(",")} -${missingUndef.join(",")}`);
+    const shown = `+${extraUndef.join(",")} -${missingUndef.join(",")}`;
+    const known = Object.hasOwn(KNOWN_UNDEF_DIFFS, name) && KNOWN_UNDEF_DIFFS[name] === shown;
+    if (known) seenKnown.add(name);
+    else unknownUndef++;
+    console.log(`undefined differ ${name}: ${shown}${known ? "  (known)" : "  NEW: not in KNOWN_UNDEF_DIFFS"}`);
   } else same++;
 }
-const refCount = [...Deno.readDirSync(theirs)].filter((e) => e.name.startsWith("pas-pizlo-release-")).length;
-console.log(`\n${objects} objects built (upstream's archive has ${refCount} pas-pizlo-release objects): ${same} identical symbol sets, ${undefMismatch} with only undefined-symbol differences, ${defMismatch} with DEFINED-symbol differences, ${missingRef} without a reference`);
+const staleKnown = Object.keys(KNOWN_UNDEF_DIFFS).filter((n) => !seenKnown.has(n));
+for (const n of staleKnown) console.log(`KNOWN DIFFERENCE GONE  ${n}: remove it from KNOWN_UNDEF_DIFFS and close its workarounds.md entry`);
+
+// Every upstream object needs one of ours, not only the other way round.
+const refNames = [...Deno.readDirSync(theirs)].map((e) => e.name).filter((n) => n.startsWith("pas-pizlo-release-"));
+const oursSet = new Set(names);
+const missingOurs = refNames.map((n) => n.slice("pas-pizlo-release-".length)).filter((n) => !oursSet.has(n)).sort();
+for (const n of missingOurs) console.log(`NOT BUILT  ${n} (upstream has pas-pizlo-release-${n})`);
+const refCount = refNames.length;
+console.log(`\n${objects} objects built (upstream's archive has ${refCount} pas-pizlo-release objects): ${same} identical symbol sets, ${undefMismatch} with only undefined-symbol differences (${unknownUndef} new, ${seenKnown.size} known), ${defMismatch} with DEFINED-symbol differences, ${missingRef} without a reference, ${missingOurs.length} not built`);
 
 // 3. The small pieces next to libpizlo: the two crt objects and libyolounwind.a.
 let smallOk = true;
@@ -87,6 +108,7 @@ for (const f of ["filc_crt.o", "filc_mincrt.o", "libyolounwind.a"]) {
   console.log(`${same ? "SAME" : "DIFFERS"}  ${f}: defines ${[...od].sort().join(" ")}${same ? "" : `  (+${extra.join(",")} -${missing.join(",")})`}`);
 }
 
-const ok = defMismatch === 0 && missingRef === 0 && smallOk;
+const ok = defMismatch === 0 && missingRef === 0 && missingOurs.length === 0 && unknownUndef === 0 &&
+  staleKnown.length === 0 && smallOk;
 console.log(ok ? "OK: every object defines exactly the global symbols upstream's does" : "FAILED");
 Deno.exit(ok ? 0 : 1);
