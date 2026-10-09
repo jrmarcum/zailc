@@ -267,5 +267,70 @@ reduced and confirmed the same night.
   symbol, libc-call lowering, and empty-translation-unit debug info to differ. The other GCC-built
   pieces are libyolort and crtbegin/crtend, if upstream built them with GCC too.
 - **Cost and exit.** None at run time. It lasts as long as the oracle is a GCC-built release.
-- **Where.** `tools/runtime/verify-yolomusl.ts` (`OURS_ONLY_UNDEF`, `THEIRS_ONLY_UNDEF`,
-  `UNDEF_BUDGET`, `EMPTY_TU_BUDGET`).
+- **Where.** `tools/runtime/verify-yolomusl.ts` (the `Oracle` policy's `oursOnlyUndef` /
+  `theirsOnlyUndef`, `UNDEF_BUDGET`, `EMPTY_TU_BUDGET`; `tools/runtime/lib/objects.ts`).
+- **compiler-rt too (2026-10-09).** Upstream built libyolort and crtbegin/crtend with GCC 11.4 as
+  Ubuntu ships it. `verify-compiler-rt.ts` measured 14 objects (13 members + crtbegin.o) whose
+  undefined symbols differ, and only in:
+  - **Theirs only:** `__stack_chk_fail` (Ubuntu GCC defaults to `-fstack-protector-strong`),
+    `__fprintf_chk` (Ubuntu's default `-D_FORTIFY_SOURCE=2` turns eprintf's `fprintf` into it), and
+    `_GLOBAL_OFFSET_TABLE_`; and the helper libcalls GCC chose: `__divti3` in muloti4/mulvti3, and
+    `__gttf2` / `__letf2` / `__floatsitf` in divtc3/multc3.
+  - **Ours only:** clang's choices for the same operations, `__udivti3` and `__lttf2`, and plain
+    `fprintf`.
+
+  Every helper named on either side is defined in libyolort itself; `fprintf`/`__fprintf_chk` are
+  libc's. Allowed only as these sets, in exactly 14 objects. The two members that DEFINE more in
+  ours (`__trunctfhf2`, `__extendhftf2`) are not this class: they are W-10.
+
+### W-9. A Windows path forwarded into WSL broke CMake under `zig cc` (2026-10-09)
+
+- **Symptom.** `import-compiler-rt-sources.ts`: CMake's compiler identification failed: "file
+  STRINGS file …/CompilerIdC/C:/Users/jmarcum/.cache/zig-local/wazmrt cannot be read".
+- **Class.** zailc's own gap (tooling).
+- **Root cause (measured).** `linuxOnly()` forwards every `ZIG_*` variable into WSL. The Windows
+  environment sets `ZIG_LOCAL_CACHE_DIR=C:\Users\jmarcum\.cache\zig-local\wazmrt` (a sibling
+  project's setting). In WSL that is a relative directory name, so `zig cc` wrote its cache "into"
+  it inside CMake's probe directory, and CMake read the wrong file. Tools that run `zig build` were
+  unaffected because they pass `--cache-dir`. `zig cc` under configure or CMake passes none.
+- **Fix.** `tools/lib/tool.ts` `linuxOnly()` never forwards a value that is a Windows path
+  (`X:\` or `X:/`), and prints a note naming it.
+- **Why it is correct.** Inside WSL a Windows path is never valid; the Linux defaults apply instead.
+- **Recognising a relative.** Any tool behaving differently when started from Windows than from a WSL
+  shell: compare the environment it received.
+- **Where.** `tools/lib/tool.ts` `linuxOnly`.
+
+### W-10. Fil-C 0.686: `_Float16` conversions are wrong; the release's libyolort has no `_Float16` (2026-10-09)
+
+**Class: upstream defect (Fil-C), FIXED in zailc by a recorded departure** (owner's decision).
+
+1. **The defect.** With Fil-C 0.686's release alone (its clang, its runtime), `float` → `_Float16`
+   → `float` gives wrong values: `1.5 -> half 0x0000 -> 0.00830078` (expected `0x3e00`, `1.5`).
+   Static and dynamic links both. Reproduction: `tests/upstream/filc-0.686-float16-libyolort.c`.
+2. **Why it is a defect.** The conversion is defined by C (`_Float16` is an exactly representable
+   value here). The x86-64 psABI passes `_Float16` in an SSE register, and LLVM, so Fil-C's clang,
+   calls `__truncsfhf2` / `__extendhfsf2` that way. The callee in the release reads a different
+   register, so caller and callee disagree on the ABI of the same function.
+3. **How it was confirmed.**
+   - **Upstream alone:** the release's clang and runtime only. Wrong, exit 1, static and dynamic.
+   - **The callee, measured:** the release's `libyolort.a` member `extendhfsf2.c.o` starts
+     `mov %edi,%eax`, so it reads an integer register. Ours starts `pextrw $0x0,%xmm0,%eax`, so
+     it reads `%xmm0`.
+   - **Why the callee is so, measured:** the release's libyolort was built by GCC 11.4 (`.comment`).
+     compiler-rt's CMake sets `COMPILER_RT_HAS_FLOAT16` only when the compiler has `_Float16`
+     (GCC 12+ on x86). Its two `_Float16`-only members (`extendhftf2`, `trunctfhf2`) are empty
+     in the release and define their functions in ours.
+   - **The caller, measured:** the program's code calls `__truncsfhf2@PLT` / `__extendhfsf2@PLT`
+     (`-S` output).
+   - **Control:** the same program, everything upstream's except libyolort.a, which is ours: correct
+     values, exit 0. The host clang with its own compiler-rt: correct.
+4. **What zailc does: the fix, as a departure** (owner, 2026-10-09: "Keep the fix"). libyolort
+   is built with what compiler-rt's CMake chooses for Zig's clang (`_Float16` on). `tests/link/half_float.c`
+   carries `// departure W-10: stock exit 1`: `link-run.ts` requires ours correct (exit 0) and stock
+   still wrong (exit 1). `verify-compiler-rt.ts` allows exactly the two extra definitions
+   (`DEPARTED_BUDGET`). **Exit:** upstream rebuilds libyolort with a `_Float16`-capable compiler;
+   then stock exits 0, the departure check fails, and the line is removed.
+5. **Published** in `UPSTREAM-ISSUES.md` § Fil-C 2 (2026-10-09). Not filed elsewhere, by rule.
+
+- **Where.** `tests/upstream/filc-0.686-float16-libyolort.c`, `tests/link/half_float.c`,
+  `tools/runtime/verify-compiler-rt.ts`, `UPSTREAM-ISSUES.md`.

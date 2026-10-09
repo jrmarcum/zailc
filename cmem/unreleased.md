@@ -32,6 +32,9 @@ header.
   New build options `filc-src` and `pizfix`; new tools under `tools/runtime/`; new env var
   `ZAILC_FILC_PREBUILT`. The runtime's source paths (`__FILE__` in asserts and panics) are
   upstream's (`src/libpas/x.c`).
+- `zig build compiler-rt -Dfilc-src=<Fil-C tree>`: Fil-C's compiler-rt from upstream's sources with
+  what its CMake configures for Zig's clang: `libyolort.a`, `crtbegin.o`, `crtend.o`. Unlike
+  Fil-C 0.686's release, `_Float16` conversions are correct (W-10; `UPSTREAM-ISSUES.md` Fil-C 2).
 - `zig build yolomusl -Dfilc-src=<Fil-C tree>`: Fil-C's yolo musl (the runtime's own libc) from
   upstream's sources with the flags musl's configure picks for Zig's clang: `libyoloc.a`, `crt1.o`,
   `Scrt1.o`, `rcrt1.o`, `crti.o`, `crtn.o`, `libyolom.a`. `zailc-gen musl-genh` writes musl's two
