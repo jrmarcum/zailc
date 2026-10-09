@@ -27,7 +27,11 @@ same objects or same behaviour where code is compiled.
       stack out-of-bounds and use-after-free traps (exit 133), allocator stress, GC, threads,
       signals, setjmp, C++ exceptions. Found and fixed on the way: the runtime's `__FILE__`
       paths (W-6). Found in upstream: a C++ exception panic at -O1 (W-7).
-- [ ] **zilc's corpus against our runtime**: zilc's Zig programs, linked the same two ways.
+- [x] **zilc's corpus against our runtime** (2026-10-08): `tools/runtime/corpus-run.ts` builds
+      zilc's `tests/basics` with zilc (ReleaseSafe, zilc's patched Fil-C clang, from a copy),
+      takes the objects from zilc's final link line and links them against upstream's runtime and
+      ours: **156/156 programs** (78 C, 78 Zig): 137 identical, 19 that vary by themselves
+      (times, random numbers, thread order) with the same shape; 0 differ.
 - [ ] **yolo musl's libraries through `build.zig`**: `libyoloc.a`/`.so`, `crt1.o`, `crti.o`,
       `crtn.o`, `Scrt1.o`, `rcrt1.o`, `ld-fil1-x86_64.so`; 1,515 C + 283 asm files with musl's
       arch-override rule, the per-file flag classes (`-fPIE` objects, `-fPIC` `.lo`, CRT, NOSSP,

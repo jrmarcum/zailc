@@ -60,10 +60,12 @@ small. Modeled on zilc's `cmem/` (same author), which is modeled on wazmrt's.
   tarball's upstream-built objects define (177 of 178 identical in undefined symbols too; the one
   difference is an undefined `pas_panic` reference, `workarounds.md` W-4). Nothing is copied from
   the Fil-C tree and nothing is written into it. Tests 11/11. Details: `testing.md`, `oracle.md`.
-- ▶️ **NEXT (step 2, in order):** (1) **zilc's corpus against our runtime** (the C/C++ half of
-  link-and-run is done, above); (2) **yolo musl's libraries** (`libyoloc.a`/`.so`, crt
-  files, 1,515 C + 283 asm, the arch-override rule) through `build.zig`; (3) **compiler-rt
-  builtins** (`libyolort.a`, crtbegin/end); (4) the three Fil-C-compiled pieces through Fil-C's
+- ✅ **Step 2, zilc's corpus against our runtime (2026-10-08, night):** `corpus-run.ts`; 156/156
+  (78 C + 78 Zig, built by zilc): 137 identical, 19 self-varying ones the same shape, 0 differ.
+  Link-and-run is DONE; the stock half of the runtime behaves as upstream's.
+- ▶️ **NEXT (step 2, in order):** (1) **yolo musl's libraries** (`libyoloc.a`/`.so`, crt
+  files, 1,515 C + 283 asm, the arch-override rule) through `build.zig`; (2) **compiler-rt
+  builtins** (`libyolort.a`, crtbegin/end); (3) the three Fil-C-compiled pieces through Fil-C's
   clang inside `zig build`, as a development bridge only (they ship compiled by zailc's own pass).
   Then step 3, the pass. `roadmap.md`.
 
