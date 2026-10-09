@@ -26,7 +26,8 @@ same objects or same behaviour where code is compiled.
       scaffolding). 9 programs, 10 variants, all identical to stock: startup, stdio, heap and
       stack out-of-bounds and use-after-free traps (exit 133), allocator stress, GC, threads,
       signals, setjmp, C++ exceptions. Found and fixed on the way: the runtime's `__FILE__`
-      paths (W-6). Found in upstream: a C++ exception panic at -O1 (W-7).
+      paths (W-6). Found in upstream: a C++ exception panic at -O1 (W-7), reduced and pinned by
+      `tests/link/eh_dtor_writes_global.cpp` (12/12 variants identical after it).
 - [x] **zilc's corpus against our runtime** (2026-10-08): `tools/runtime/corpus-run.ts` builds
       zilc's `tests/basics` with zilc (ReleaseSafe, zilc's patched Fil-C clang, from a copy),
       takes the objects from zilc's final link line and links them against upstream's runtime and

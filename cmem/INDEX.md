@@ -16,14 +16,37 @@ small. Modeled on zilc's `cmem/` (same author), which is modeled on wazmrt's.
 
 ---
 
-## ▶️ 2026-10-08 — DAY ONE. START HERE
+## ⏸️ PAUSED 2026-10-08 (night), owner: "we will pause here for today". RESUME HERE
 
-- 🧭 **Git state (2026-10-08, night):** `main` is PUSHED and follows the `--no-ff` rule; the
-  first push with the workflows (`a75acda`) ran on GitHub: CI green (fmt, tests, smoke), auto-tag
-  green with the gate read as closed and the tag steps skipped, publish skipped, no tag, no
-  release. 🚦 **The release gate (`.github/release-gate`) is `closed`**: `main` is pushed as
-  finished branches land and releases nothing; the owner opens the gate when the first release
-  is due (next bullet; `releasing.md`). Check
+- **Where things stand.** Step 2 has three pieces done and proven against upstream: the forwarder
+  generator (byte-identical to Ruby), musl's header install (byte-identical), and the stock half
+  of the runtime (libpas, crt objects, yolounwind) built by `zig build`, symbol-identical and
+  behaving identically: `tests/link` 12/12 variants, zilc's corpus 156/156. Nothing is open
+  mid-change. The working tree is clean, `main` = `origin/main`.
+- **Resume with:** step 2 item 2, **yolo musl's libraries through `build.zig`** (`libyoloc.a`
+  and `.so`, `crt1.o`, `crti.o`, `crtn.o`, `Scrt1.o`, `rcrt1.o`, `ld-fil1-x86_64.so`;
+  roadmap.md has the size and the rules). Same method as libpas:
+  1. Import the source list from the yolomusl tree with a tool like `import-libpas-sources.ts`.
+  2. Take the flags from `configure`'s `config.mak`, kept in `~/zailc-work/ref/yolomusl`.
+  3. Use the release tarball's `libyoloc.a` as the symbol oracle (extend `verify-libpas.ts` or
+     add a sibling).
+  4. Then put our `libyoloc.a` and crt files into the overlay in `tools/runtime/lib/two-runtimes.ts`
+     and re-run `link-run.ts` and `corpus-run.ts`. The link-map proof must then cover libc too.
+  The program-only form of the gates: `deno run -A tools/runtime/link-run.ts` (about 2 min) and
+  `deno run -A tools/runtime/corpus-run.ts` (about 20 min, background it).
+- **Open, none blocking:**
+  - **W-7:** verify the surmised root cause by reading the pass's output IR for
+    `tests/upstream/filc-0.686-landing-pad-can-catch.cpp`, then update W-7 and
+    `UPSTREAM-ISSUES.md`.
+  - **W-5:** declare the musl tree as an input of the headers step before the Fil-C pin first moves.
+  - **`zailc-gen --version`:** releasing.md's preflight wants it (⏳ there).
+  - **Merged local branches:** delete them, or keep them as a record (owner's call).
+- 🧭 **Git state (2026-10-08, night):** `main` is PUSHED and follows the `--no-ff` rule. Every
+  push today ran green on GitHub (CI, including `deno check tools/`, and auto-tag with the gate
+  read as closed and the tag steps skipped). No tag, no release. 🚦 **The release gate
+  (`.github/release-gate`) is `closed`**: `main` is pushed as finished branches land and
+  releases nothing; the owner opens the gate when the first release is due (next bullet;
+  `releasing.md`). Check
   rather than trust this line: `git log --oneline --first-parent origin/main..main`,
   `git branch -r`, `git tag`. Several sessions commit here concurrently: re-read `git log`
   before merging into `main`.
@@ -36,8 +59,8 @@ small. Modeled on zilc's `cmem/` (same author), which is modeled on wazmrt's.
   alone; `workarounds.md` template, `tests/upstream/`. Published in `UPSTREAM-ISSUES.md` ONLY:
   nothing is filed upstream, upstream references the file. First entry: W-7.
 - ✅ **Step 2, link and run (2026-10-08, night):** `tools/runtime/link-run.ts` links each
-  `tests/link/` program statically against upstream's runtime and against ours; 10/10 variants
-  identical (traps, GC, threads, signals, C++ exceptions). Fixed on the way: `__FILE__` paths
+  `tests/link/` program statically against upstream's runtime and against ours; 12/12 variants
+  identical (traps, GC, threads, signals, C++ exceptions; W-7's minimal form pinned). Fixed on the way: `__FILE__` paths
   (W-6). Upstream's own C++ exception panic at -O1 recorded and reproduced (W-7).
 - 🌱 **zailc started** (owner, 2026-10-05: "we will zag where they zig"; 2026-10-08: "Proceed with
   the zig-filc-scope.md and platforms.md brief"). The brief is `scope.md` (copied from zilc with
