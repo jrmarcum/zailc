@@ -10,7 +10,7 @@
 //
 //   deno run -A tools/runtime/verify-libpas.ts        (from Windows or Linux; runs in WSL)
 
-import { REPO, WORK, filcPrebuilt, linuxOnly, mkdirp, must, requireFilcSrc, rmrf, run, zig, zigCacheArgs } from "../lib/tool.ts";
+import { REPO, WORK, existsSync, filcPrebuilt, linuxOnly, mkdirp, must, requireFilcSrc, rmrf, run, zig, zigCacheArgs } from "../lib/tool.ts";
 
 await linuxOnly(import.meta);
 
@@ -57,7 +57,8 @@ async function sourcePaths(obj: string): Promise<Set<string>> {
     for (const c of bytes) {
       if (c >= 0x20 && c < 0x7f) cur += String.fromCharCode(c);
       else {
-        if (/\.(c|h)$/.test(cur) && /^[\w./-]+$/.test(cur)) found.add(cur);
+        // A path has a `/`; without one it is the tail of another string (`_allocator.c`).
+        if (/\.(c|h)$/.test(cur) && /^[\w./-]+$/.test(cur) && cur.includes("/")) found.add(cur);
         cur = "";
       }
     }
@@ -119,13 +120,22 @@ for (const name of names) {
     console.log(`asserts differ   ${name}: +${extraPath.join(",")} -${missingPath.join(",")}`);
   }
 }
-// Form: every path we carry is one upstream carries somewhere.
+// Form: every path we carry is spelled as upstream's make (run in libpas/) spells it: relative,
+// and naming a real file from there. Upstream's own paths must pass the same rule, which checks
+// the rule itself.
 let pathForm = 0;
+const upstreamForm = (p: string) => !p.startsWith("/") && existsSync(`${src}/libpas/${p}`);
+for (const p of upstreamPaths) {
+  if (!upstreamForm(p)) {
+    pathForm++;
+    console.log(`SOURCE PATH FORM RULE IS WRONG  upstream carries ${p}`);
+  }
+}
 for (const [name, ps] of ourPaths) {
   for (const p of ps) {
-    if (!upstreamPaths.has(p)) {
+    if (!upstreamForm(p)) {
       pathForm++;
-      console.log(`SOURCE PATH FORM  ${name}: ${p} (upstream's objects never carry this path)`);
+      console.log(`SOURCE PATH FORM  ${name}: ${p} (upstream's make in libpas/ would not spell it so)`);
     }
   }
 }
