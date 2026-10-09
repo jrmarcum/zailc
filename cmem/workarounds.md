@@ -88,3 +88,33 @@ found**, **Recognising a relative**, **Cost and exit**, **Where**.
   moves; or clear `~/zailc-work/zig-cache`. The cache clear is step 3 of `upstream.md`
   § "Moving the pins".
 - **Where.** `build.zig` `buildStockRuntime` (`headers`).
+
+### W-6. Zig passes absolute source paths, so `__FILE__` in the runtime was not upstream's (2026-10-08)
+
+- **Symptom.** `link-run.ts`, `exceptions`: the same panic as stock, but ours read
+  `/home/…/filc-cosmo/libpas/src/libpas/filc_runtime.c:7611` where upstream's reads
+  `src/libpas/filc_runtime.c:7611`. Measured: 97 of 178 objects carried absolute paths in their
+  read-only data (every `PAS_ASSERT`, every panic naming a source file).
+- **Class.** Build-driver difference: upstream's make runs in `libpas/` and passes
+  `src/libpas/x.c` (`filc_crt.o`: `../filc/main/main.c`; yolounwind: `yolounwind.c` from its own
+  directory); Zig passes absolute paths, and `__FILE__` is the path as given.
+- **Fix.** `build.zig`: `-ffile-prefix-map=<libpas>/=`, `=<filc-src>/=../` for the crt objects,
+  `=<filc-src>/yolounwind/=` for yolounwind. Guarded by `verify-libpas.ts` (form rule) and by
+  `link-run.ts` (`exceptions-O1` prints the path).
+- **Not a fix for.** Which asserts survive `-O3` (16 objects differ: the W-4 class, a ratchet).
+- **Recognising a relative.** Any text the runtime prints that the build's paths feed: debug
+  info's file names (covered by the same flag), `__BASE_FILE__`, a generated file's `#line`.
+
+### W-7. Fil-C 0.686 panics in `landing_pad_impl` on `tests/link/exceptions.cpp` at -O1 (2026-10-08)
+
+- **Symptom.** `filc panic: src/libpas/filc_runtime.c:7611: ... landing_pad_impl ...: assertion
+  function_origin->can_catch failed.`, exit 133.
+- **Class.** UPSTREAM behaviour, measured with the release tarball alone (no zailc piece):
+  -O1 and -O2 panic, static and dynamic; -O0 passes; a minimal `throw 42` / `catch` passes at
+  -O1. Not reduced yet: the program has a throw through ten frames with destructors, a rethrow
+  (`throw;`), and libc++ containers.
+- **What zailc does.** Reproduces it: `exceptions.cpp` has an -O0 variant (exit 0) and an -O1
+  variant (exit 133, the panic text compared). zailc is right when it matches upstream (oracle
+  rule); a fix would be a departure, recorded in `design-decisions.md` when made.
+- **Exit.** Reduce it (which construct), check zilc and upstream's issues, and report it upstream.
+- **Where.** `tests/link/exceptions.cpp`, `tools/runtime/link-run.ts`.

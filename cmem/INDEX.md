@@ -22,11 +22,19 @@ small. Modeled on zilc's `cmem/` (same author), which is modeled on wazmrt's.
   `First publish` (`8a73338`); local `main` is ahead and unpushed, by `--no-ff` merges only
   (release rules, the CI/release workflows, step 2's stock runtime, the day-one state, the
   day-one review fixes). Branches on the remote: `step2/stock-runtime`, `docs/state-2026-10-08`.
-  No tag: **the next push of `main` releases `v0.1.0`** (`releasing.md`, owner's call). Check
+  No tag: the next push of `main` would release `v0.1.0`, so 🛑 **`main` is not pushed** until
+  the first release is due (next bullet). Check
   rather than trust this line: `git log --oneline --first-parent origin/main..main`,
   `git branch -r`, `git tag`. Several sessions commit here concurrently: re-read `git log`
   before merging into `main`.
 
+- 🎯 **First release = Fil-C fully in Zig, verified against zilc; the user installs ONLY Zig**
+  (owner, 2026-10-08). No upstream-built library or compiler ships; the release tarball and Fil-C's
+  clang are scaffolding and oracle only, each retired by a roadmap item. `design-decisions.md`.
+- ✅ **Step 2, link and run (2026-10-08, night):** `tools/runtime/link-run.ts` links each
+  `tests/link/` program statically against upstream's runtime and against ours; 10/10 variants
+  identical (traps, GC, threads, signals, C++ exceptions). Fixed on the way: `__FILE__` paths
+  (W-6). Upstream's own C++ exception panic at -O1 recorded and reproduced (W-7).
 - 🌱 **zailc started** (owner, 2026-10-05: "we will zag where they zig"; 2026-10-08: "Proceed with
   the zig-filc-scope.md and platforms.md brief"). The brief is `scope.md` (copied from zilc with
   one correction) plus the platform notes in `roadmap.md`. The decisions that frame everything are
@@ -52,13 +60,12 @@ small. Modeled on zilc's `cmem/` (same author), which is modeled on wazmrt's.
   tarball's upstream-built objects define (177 of 178 identical in undefined symbols too; the one
   difference is an undefined `pas_panic` reference, `workarounds.md` W-4). Nothing is copied from
   the Fil-C tree and nothing is written into it. Tests 11/11. Details: `testing.md`, `oracle.md`.
-- ▶️ **NEXT (step 2, in order):** (1) **link and run**: a Fil-C program linked from zailc's
-  `libpizlo-stock.a` + the five Fil-C-compiled `fil-pizlo-*.o` (from the tarball's `libpizlo.a`
-  for now) + the tarball's `libyoloc`/`libyolort`/crt files, must run and trap out-of-bounds like
-  zilc's; then zilc's corpus against it; (2) **yolo musl's libraries** (`libyoloc.a`/`.so`, crt
+- ▶️ **NEXT (step 2, in order):** (1) **zilc's corpus against our runtime** (the C/C++ half of
+  link-and-run is done, above); (2) **yolo musl's libraries** (`libyoloc.a`/`.so`, crt
   files, 1,515 C + 283 asm, the arch-override rule) through `build.zig`; (3) **compiler-rt
   builtins** (`libyolort.a`, crtbegin/end); (4) the three Fil-C-compiled pieces through Fil-C's
-  clang inside `zig build`, as the interim the brief names. Then step 3, the pass. `roadmap.md`.
+  clang inside `zig build`, as a development bridge only (they ship compiled by zailc's own pass).
+  Then step 3, the pass. `roadmap.md`.
 
 ---
 
