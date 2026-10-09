@@ -50,7 +50,7 @@ for (const file of tests) {
   }
 }
 
-let pass = 0, fail = 0;
+let pass = 0, fail = 0, passedDepartures = 0;
 const runEnv = ["env", "-i", "PATH=/usr/bin:/bin", "timeout", TIMEOUT];
 for (const { file, name, flags, expect, departure } of variants) {
   const cc = `${ov.prebuilt}/build/bin/${file.endsWith(".cpp") ? "clang++" : "clang"}`;
@@ -88,12 +88,12 @@ for (const { file, name, flags, expect, departure } of variants) {
     console.log(`  --- stock (exit ${s1.code}):\n${s1.out.trimEnd()}\n  --- ours (exit ${o1.code}):\n${o1.out.trimEnd()}`);
   } else {
     pass++;
+    if (departure) passedDepartures++;
     const first = o1.out.split("\n")[0];
     const how = departure ? `DEPARTURE ${departure.why}: stock exit ${s1.code} as recorded, ours correct` : `output identical to stock (${o1.out.length} bytes; "${first}")`;
     console.log(`ok   ${name}: exit ${o1.code}, ${how}; ${linked.members} libpizlo + ${linked.yolocMembers} libyoloc members, as stock; our ${linked.crt.join(" ")}`);
   }
 }
 
-const departures = variants.filter((v) => v.departure).length;
-console.log(`\n${tests.length} programs, ${variants.length} variants: ${pass} passed (${pass - departures} identical to stock, ${departures} recorded departures), ${fail} failed`);
+console.log(`\n${tests.length} programs, ${variants.length} variants: ${pass} passed (${pass - passedDepartures} identical to stock, ${passedDepartures} recorded departures), ${fail} failed`);
 Deno.exit(fail === 0 && pass === variants.length && variants.length > 0 ? 0 : 1);
