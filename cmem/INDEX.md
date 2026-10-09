@@ -22,8 +22,9 @@ small. Modeled on zilc's `cmem/` (same author), which is modeled on wazmrt's.
   `First publish` (`8a73338`); local `main` is ahead and unpushed, by `--no-ff` merges only
   (release rules, the CI/release workflows, step 2's stock runtime, the day-one state, the
   day-one review fixes). Branches on the remote: `step2/stock-runtime`, `docs/state-2026-10-08`.
-  No tag: the next push of `main` would release `v0.1.0`, so 🛑 **`main` is not pushed** until
-  the first release is due (next bullet). Check
+  No tag. 🚦 **The release gate (`.github/release-gate`) is `closed`**: pushing `main` runs CI
+  and releases nothing, so `main` is pushed as finished branches land; the owner opens the gate
+  when the first release is due (next bullet; `releasing.md`). Check
   rather than trust this line: `git log --oneline --first-parent origin/main..main`,
   `git branch -r`, `git tag`. Several sessions commit here concurrently: re-read `git log`
   before merging into `main`.
