@@ -16,7 +16,7 @@
 //   deno run -A tools/runtime/verify-yolomusl.ts      (from Windows or Linux; runs in WSL)
 
 import { REPO, WORK, existsSync, filcPrebuilt, linuxOnly, requireFilcSrc, run, zig, zigCacheArgs } from "../lib/tool.ts";
-import { baseName, definedWithType, diff, readArchive, sourcePaths, symbols } from "./lib/objects.ts";
+import { baseName, compileUnitNames, definedWithType, diff, readArchive, sourcePaths, symbols } from "./lib/objects.ts";
 
 await linuxOnly(import.meta);
 
@@ -31,6 +31,11 @@ const prefix = `${WORK}/out`;
 const OURS_ONLY_UNDEF = new Set(["memcpy", "memset"]);
 const THEIRS_ONLY_UNDEF = new Set(["_GLOBAL_OFFSET_TABLE_"]);
 const UNDEF_BUDGET = 28; // members whose undefined symbols differ (within the sets above); a ratchet
+// A translation unit that compiles to nothing (src/linux/cache.c on x86_64: all three of its
+// #ifdef SYS_* blocks are out) still gets a DWARF compile unit from GCC and none from clang.
+// Allowed only when upstream's member defines and references nothing; counted. W-8.
+const EMPTY_TU_BUDGET = 1;
+let emptyTu = 0;
 
 const b = await run([zig(), "build", "yolomusl", `-Dfilc-src=${src}`, "--prefix", prefix, ...zigCacheArgs()], { cwd: REPO, inherit: true });
 if (b.code !== 0) {
@@ -41,6 +46,7 @@ if (b.code !== 0) {
 const tmp = await Deno.makeTempDir();
 const upstreamForm = (p: string) => !p.startsWith("/") && existsSync(`${tree}/${p}`);
 let failures = 0;
+let cuCompared = 0;
 const fail = (msg: string) => {
   failures++;
   console.log(msg);
@@ -55,6 +61,12 @@ async function compare(label: string, ours: string, theirs: string): Promise<boo
   const bad = [...plus.filter((s) => !OURS_ONLY_UNDEF.has(s)).map((s) => `+${s}`), ...minus.filter((s) => !THEIRS_ONLY_UNDEF.has(s)).map((s) => `-${s}`)];
   if (bad.length) fail(`UNDEFINED DIFFERS  ${label}: ${bad.join(",")} (outside the compiler-difference sets, W-8)`);
   for (const p of await sourcePaths(ours)) if (!upstreamForm(p)) fail(`SOURCE PATH FORM  ${label}: ${p}`);
+  // musl carries no __FILE__ strings, so the check above sees nothing here (the M2 mutant
+  // survived it); the source path upstream's objects DO expose is the compile unit's name.
+  const [cA, cB] = await Promise.all([compileUnitNames(ours), compileUnitNames(theirs)]);
+  if (cA.join("|") === cB.join("|")) cuCompared += cA.length;
+  else if (cA.length === 0 && dB.size === 0 && uB.size === 0) emptyTu++; // GCC's CU for an empty TU
+  else fail(`COMPILE UNIT NAME  ${label}: ours ${cA.join(",") || "(none)"}, upstream's ${cB.join(",") || "(none)"}`);
   return plus.length + minus.length > 0;
 }
 
@@ -89,5 +101,7 @@ if (yolom[0] !== "!<arch>\n" || yolom[1] !== "!<arch>\n") fail(`libyolom.a: not 
 else console.log("libyolom.a: both empty archives");
 
 await Deno.remove(tmp, { recursive: true });
-console.log(failures ? `FAILED: ${failures}` : "OK: libyoloc.a and the crt objects define exactly upstream's symbols, in upstream's member order");
+if (emptyTu !== EMPTY_TU_BUDGET) fail(`EMPTY-TU RATCHET  ${emptyTu} empty translation units lack a compile unit, budget ${EMPTY_TU_BUDGET}`);
+console.log(`compile unit names: ${cuCompared} equal to upstream's; ${emptyTu} empty translation unit(s) where only GCC emits one (budget ${EMPTY_TU_BUDGET})`);
+console.log(failures ? `FAILED: ${failures}` : "OK: libyoloc.a and the crt objects define exactly upstream's symbols, in upstream's member order, with upstream's compile unit names");
 Deno.exit(failures ? 1 : 0);

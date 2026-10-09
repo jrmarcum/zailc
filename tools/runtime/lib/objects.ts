@@ -60,6 +60,22 @@ function nmLines(out: string): string[] {
 
 export const diff = <T>(a: Set<T>, b: Set<T>) => [...a].filter((x) => !b.has(x)).sort();
 
+/** The DWARF compile units' names (`DW_AT_name`), in order: the source path as the build named it,
+ *  which is what a debugger shows. An object without debug info gives []. */
+export async function compileUnitNames(obj: string): Promise<string[]> {
+  const out = await must(["readelf", "--debug-dump=info", "--dwarf-depth=1", obj]);
+  const names: string[] = [];
+  let inCu = false;
+  for (const line of out.split("\n")) {
+    if (/DW_TAG_compile_unit/.test(line)) inCu = true;
+    else if (inCu && /DW_AT_name\s*:/.test(line)) {
+      names.push(line.replace(/^.*DW_AT_name\s*:\s*(\(.*?\):\s*)?/, "").trim());
+      inCu = false;
+    }
+  }
+  return names;
+}
+
 /** Source paths in an object's read-only data (`__FILE__`); a path has a `/`, a string tail does not. */
 export async function sourcePaths(obj: string): Promise<Set<string>> {
   const tmp = await Deno.makeTempFile();
