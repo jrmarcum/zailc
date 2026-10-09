@@ -190,7 +190,8 @@ Selected 2026-10-08 (owner: "copy in the ones that are relevant to our specific 
 - **An upstream defect (Zig, zilc, Fil-C) is documented in full before it is worked around or
   fixed** (owner, 2026-10-08): what it is, why it is a defect against upstream's OWN contract,
   and how it was confirmed with upstream ALONE (reduction, controls, a committed reproduction in
-  `tests/upstream/`, an `UPSTREAM-ISSUES.md` entry). Only then the workaround or fix
+  `tests/upstream/`), published in `UPSTREAM-ISSUES.md` ONLY (nothing is filed upstream; upstream
+  references the file). Only then the workaround or fix
   (`workarounds.md` § "How to write an entry"; W-7 is the worked example).
 - **Every workaround gets its why-notes when it is made** (`workarounds.md`), with measured facts
   and surmises kept apart and what was ruled out listed. **A reopen condition is not

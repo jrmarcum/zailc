@@ -31,14 +31,17 @@ found**, **Recognising a relative**, **Cost and exit**, **Where**.
 3. **How it was confirmed.** Reproduced with the upstream ALONE (no zailc code in the build or
    the run); the reduction and every control that does and does not trigger it; what was ruled
    out; what is measured and what is still surmised, kept apart. The reproduction is committed
-   (`tests/upstream/`, one file per defect) and an entry for the maintainers goes in
-   `UPSTREAM-ISSUES.md`. For zilc (a sibling repo zailc never writes into), the note is drafted
-   for the zilc team and handed over.
+   (`tests/upstream/`, one file per defect).
 4. **What zailc does: a workaround or a fix**, with the headings above (why it is correct, ruled
    out, cost and exit). While Fil-C's behaviour is the oracle, zailc REPRODUCES an upstream defect
    and pins it with a test that flips when upstream fixes it; correcting it instead is a
    departure from the oracle and needs a `design-decisions.md` row.
-5. **Reported.** Where and when it was reported upstream, or that it is not reported yet.
+5. **Published in `UPSTREAM-ISSUES.md`**, the ONE place zailc documents upstream defects (owner,
+   2026-10-08: "We will document in that file only and let upstream reference it for their use."). Nothing is filed in upstream trackers or written into zilc; upstream
+   (Fil-C, Zig, zilc) reads and references the file. The entry is written for those maintainers:
+   version and commit, the reproduction, the exact output, why it is a defect, what is measured
+   and what is surmised. It is kept current: corrected when the understanding changes, and marked
+   fixed (with the upstream version) when upstream fixes it.
 
 ## Entries
 
@@ -174,7 +177,7 @@ reduced and confirmed the same night.
    which zailc rewrites in step 3. Fixing it there departs from the oracle and needs a
    `design-decisions.md` row, plus the -O1 expectations flipped to 0 in the same commit.
    **Exit:** upstream fixes it (the -O1 variants then fail and are flipped), or zailc's pass does.
-5. **Reported.** Not yet. The maintainers' entry is drafted in `UPSTREAM-ISSUES.md` § Fil-C 1.
+5. **Published** in `UPSTREAM-ISSUES.md` § Fil-C 1 (2026-10-08). Not filed elsewhere, by rule.
 
 - **Where.** `tests/upstream/filc-0.686-landing-pad-can-catch.cpp`, `UPSTREAM-ISSUES.md`,
   `tests/link/eh_dtor_writes_global.cpp`, `tests/link/exceptions.cpp`, `tools/runtime/link-run.ts`.
