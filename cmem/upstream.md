@@ -8,10 +8,23 @@
 
 ## Moving the pins
 
-- **Fil-C:** change `FILC_VERSION` and `FILC_SHA` together, re-run `tools/gen/import-signatures.ts`,
-  re-measure the reference hashes in `oracle.md` and `src/gen/forwarders.zig`, and run
-  `tools/gen/verify-forwarders.ts`. Upstream's generator and tables change between releases (0.686
-  added `zsys_clock_adjtime`, `zsys_abort` and the keyctl family, per zilc's review of 0.686).
+- **Fil-C:** in this order, all inside WSL:
+  1. Change `FILC_VERSION` and `FILC_SHA` (`tools/lib/tool.ts`) together; point
+     `ZAILC_FILC_SRC` and `ZAILC_FILC_PREBUILT` at the new tree and the new release tarball.
+  2. Re-run the importers: `tools/gen/import-signatures.ts` (`src/gen/signatures.zig`) and
+     `tools/runtime/import-libpas-sources.ts` (`src/runtime/libpas_sources.zig`, from
+     `common.mk`). Review both diffs: they are upstream's changes.
+  3. Clear `~/zailc-work/zig-cache`. The `musl-headers` step is keyed on its arguments, not
+     on the musl tree, so it would reuse the old `yolo-include` (`workarounds.md` W-5), unless
+     W-5's exit has been done.
+  4. Re-measure the reference hashes in `oracle.md` and `src/gen/forwarders.zig` (a re-baseline
+     is its own commit), then run every oracle gate: `tools/gen/verify-forwarders.ts`,
+     `tools/gen/verify-musl-headers.ts`, `tools/runtime/verify-libpas.ts`.
+  5. Revisit `verify-libpas.ts`'s `KNOWN_UNDEF_DIFFS`. The ratchet fails on any new or vanished
+     undefined-symbol difference; give each new one a `workarounds.md` entry before listing it.
+
+  Upstream's generator and tables change between releases (0.686 added `zsys_clock_adjtime`,
+  `zsys_abort` and the keyctl family, per zilc's review of 0.686).
 - **Zig:** not before the owner's condition is met (zailc produces the same as zilc). Zig 0.16 moves
   to LLVM 21 IR, which Fil-C 0.686 cannot read, so a Zig move implies step 3 done or Fil-C on
   LLVM 21 (zilc's `design-decisions.md`, 2026-10-05).

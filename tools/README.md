@@ -19,7 +19,7 @@ the tool inside WSL. **Nothing a tool builds is ever executed on the Windows hos
 | `gen/verify-forwarders.ts` | runs Ruby and `zailc-gen` and compares the two outputs byte for byte |
 | `gen/verify-musl-headers.ts` | runs musl's `./configure && make install-headers` (the oracle) and `zailc-gen musl-headers`, then `diff -r` |
 | `runtime/import-libpas-sources.ts` | derives `src/runtime/libpas_sources.zig` from `libpas/common.mk`; re-run when the pin moves |
-| `runtime/verify-libpas.ts` | `zig build libpas` against the Fil-C tree, then compares every object's defined global symbols with the release tarball's `libpizlo.a`, `filc_crt.o`, `filc_mincrt.o`, `libyolounwind.a` |
+| `runtime/verify-libpas.ts` | `zig build libpas` against the Fil-C tree, then compares every object's defined global symbols with the release tarball's `libpizlo.a`, `filc_crt.o`, `filc_mincrt.o`, `libyolounwind.a`; undefined-symbol differences must be exactly `KNOWN_UNDEF_DIFFS`, and every upstream object must have one of ours |
 | `release/bump.ts` | bumps `.version` in `build.zig.zon` (`patch` default, `minor`, `major`; sub-versions capped at 9; `--dry-run`). Edits only; pushing the bump to `main` releases it (`cmem/releasing.md`) |
 
 Environment: `ZAILC_ZIG` (Zig 0.15.2 binary), `ZAILC_FILC_SRC` (a full Fil-C checkout at the
