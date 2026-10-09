@@ -40,7 +40,6 @@ small. Modeled on zilc's `cmem/` (same author), which is modeled on wazmrt's.
     `UPSTREAM-ISSUES.md`.
   - **W-5:** declare the musl tree as an input of the headers step before the Fil-C pin first moves.
   - **`zailc-gen --version`:** releasing.md's preflight wants it (⏳ there).
-  - **Merged local branches:** delete them, or keep them as a record (owner's call).
 - 🧭 **Git state (2026-10-08, night):** `main` is PUSHED and follows the `--no-ff` rule. Every
   push today ran green on GitHub (CI, including `deno check tools/`, and auto-tag with the gate
   read as closed and the tag steps skipped). No tag, no release. 🚦 **The release gate
