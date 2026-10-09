@@ -13,12 +13,15 @@
      `ZAILC_FILC_SRC` and `ZAILC_FILC_PREBUILT` at the new tree and the new release tarball.
   2. Re-run the importers: `tools/gen/import-signatures.ts` (`src/gen/signatures.zig`) and
      `tools/runtime/import-libpas-sources.ts` (`src/runtime/libpas_sources.zig`, from
-     `common.mk`). Review both diffs: they are upstream's changes.
+     `common.mk`) and `tools/runtime/import-yolomusl-sources.ts` (`src/runtime/yolomusl_sources.zig`:
+     it also fails loudly if the Makefile rules it evaluates changed). Review the diffs: they are
+     upstream's changes.
   3. (No cache clear needed since 2026-10-09: the `musl-headers` step declares the musl tree's
      files as inputs, so a new tree reruns it; `workarounds.md` W-5.)
   4. Re-measure the reference hashes in `oracle.md` and `src/gen/forwarders.zig` (a re-baseline
      is its own commit), then run every oracle gate: `tools/gen/verify-forwarders.ts`,
-     `tools/gen/verify-musl-headers.ts`, `tools/runtime/verify-libpas.ts`.
+     `tools/gen/verify-musl-headers.ts`, `tools/runtime/verify-libpas.ts`,
+     `tools/runtime/verify-yolomusl.ts`, then `link-run.ts` and `corpus-run.ts`.
   5. Revisit `verify-libpas.ts`'s `KNOWN_UNDEF_DIFFS`. The ratchet fails on any new or vanished
      undefined-symbol difference; give each new one a `workarounds.md` entry before listing it.
 

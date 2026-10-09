@@ -32,6 +32,10 @@ header.
   New build options `filc-src` and `pizfix`; new tools under `tools/runtime/`; new env var
   `ZAILC_FILC_PREBUILT`. The runtime's source paths (`__FILE__` in asserts and panics) are
   upstream's (`src/libpas/x.c`).
+- `zig build yolomusl -Dfilc-src=<Fil-C tree>`: Fil-C's yolo musl (the runtime's own libc) from
+  upstream's sources with the flags musl's configure picks for Zig's clang: `libyoloc.a`, `crt1.o`,
+  `Scrt1.o`, `rcrt1.o`, `crti.o`, `crtn.o`, `libyolom.a`. `zailc-gen musl-genh` writes musl's two
+  generated headers alone.
 - `tools/runtime/link-run.ts` and `tests/link/`: Fil-C programs linked against upstream's runtime
   and against zailc's must behave identically; `tools/runtime/corpus-run.ts` does the same for
   zilc's corpus (development gates; nothing user-facing).

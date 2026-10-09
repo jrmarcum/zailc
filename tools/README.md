@@ -19,6 +19,9 @@ the tool inside WSL. **Nothing a tool builds is ever executed on the Windows hos
 | `gen/verify-forwarders.ts` | runs Ruby and `zailc-gen` and compares the two outputs byte for byte |
 | `gen/verify-musl-headers.ts` | runs musl's `./configure && make install-headers` (the oracle) and `zailc-gen musl-headers`, then `diff -r` |
 | `runtime/import-libpas-sources.ts` | derives `src/runtime/libpas_sources.zig` from `libpas/common.mk`; re-run when the pin moves |
+| `runtime/import-yolomusl-sources.ts` | derives `src/runtime/yolomusl_sources.zig`: yolomusl's Makefile rules evaluated over the tree, flags from musl's configure run with `zig cc` in a scratch copy; re-run when the pin moves |
+| `runtime/verify-yolomusl.ts` | `zig build yolomusl`, then libyoloc.a member by member in order (symbols with binding, W-8's allowed undefined differences, compile-unit names) and the crt objects against the release tarball |
+| `runtime/lib/objects.ts` | what the object oracles compare: archive members in order, `nm` symbol sets, source paths, compile-unit names |
 | `runtime/verify-libpas.ts` | `zig build libpas` against the Fil-C tree, then compares every object's defined global symbols with the release tarball's `libpizlo.a`, `filc_crt.o`, `filc_mincrt.o`, `libyolounwind.a`; undefined-symbol differences must be exactly `KNOWN_UNDEF_DIFFS`, and every upstream object must have one of ours |
 | `runtime/link-run.ts` | links every `tests/link/` program statically against upstream's runtime and against ours with the driver's own link line, proves from the link map which runtime each got, and compares output and exit code (`[name ...]` runs a subset) |
 | `runtime/corpus-run.ts` | builds zilc's `tests/basics` (Zig and C) with zilc from a copy, links each against upstream's runtime and ours, and runs both as zilc-check.ts runs its programs (`["c zig"] [name ...]`; MODE, JOBS) |

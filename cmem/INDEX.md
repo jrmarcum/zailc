@@ -23,17 +23,17 @@ small. Modeled on zilc's `cmem/` (same author), which is modeled on wazmrt's.
   of the runtime (libpas, crt objects, yolounwind) built by `zig build`, symbol-identical and
   behaving identically: `tests/link` 12/12 variants, zilc's corpus 156/156. Nothing is open
   mid-change. The working tree is clean, `main` = `origin/main`.
-- **Resume with:** step 2 item 2, **yolo musl's libraries through `build.zig`** (`libyoloc.a`
-  and `.so`, `crt1.o`, `crti.o`, `crtn.o`, `Scrt1.o`, `rcrt1.o`, `ld-fil1-x86_64.so`;
-  roadmap.md has the size and the rules). Same method as libpas:
-  1. Import the source list from the yolomusl tree with a tool like `import-libpas-sources.ts`.
-  2. Take the flags from `configure`'s `config.mak`, kept in `~/zailc-work/ref/yolomusl`.
-  3. Use the release tarball's `libyoloc.a` as the symbol oracle (extend `verify-libpas.ts` or
-     add a sibling).
-  4. Then put our `libyoloc.a` and crt files into the overlay in `tools/runtime/lib/two-runtimes.ts`
-     and re-run `link-run.ts` and `corpus-run.ts`. The link-map proof must then cover libc too.
-  The program-only form of the gates: `deno run -A tools/runtime/link-run.ts` (about 2 min) and
-  `deno run -A tools/runtime/corpus-run.ts` (about 20 min, background it).
+- ✅ **2026-10-09: yolo musl's static half from `zig build yolomusl`.** `libyoloc.a` (1,343
+  members, upstream's names in upstream's order), the five crt objects and `libyolom.a`, built by
+  Zig's clang with configure's clang flags; upstream's release used GCC 12.3. Every member defines
+  upstream's symbols, binding included; the GCC-vs-clang residue is W-8, ratcheted. With them in
+  the overlay: `link-run` 12/12, zilc's corpus all matching (`testing.md`).
+- **Resume with:** step 2, **compiler-rt builtins** (`libyolort.a`, `crtbegin.o`, `crtend.o`;
+  upstream: `build_compiler_rt.sh`, CMake with builtins and crt on). The static link uses all
+  three, and `libyoloc.so` needs libyolort as its `LIBCC`. Then yolo musl's shared half
+  (`libyoloc.so`, `ld-fil1`). Same method each time: an importer for upstream's lists, a
+  `verify-*.ts` symbol oracle against the tarball, then into the overlay with `link-run.ts`
+  (about 2 min) and `corpus-run.ts` (about 20 min, in the background).
 - ✅ **2026-10-09:** W-7's cause CONFIRMED. The pass emits a global's getter ahead of the landing
   pad. On first use, the getter's slow path sets the frame's origin to one with `can_catch` 0,
   and the landing pad asserts on it. Proven by IR and by prediction. W-5 FIXED: the musl tree's

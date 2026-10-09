@@ -103,6 +103,7 @@ const anyOrder = (s: string) => JSON.stringify(shape(s).sort());
 const CLOCK_SECONDS: Record<string, string> = {
   "74_execing-processes": "runs `ls -la` on its working directory (times)",
   "75_spawning-processes": "runs `date` and `ls -la` (seen: stock 18:48:35, ours 18:48:36)",
+  "53_random-numbers": "C: srand(time(NULL)) at line 18 seeds one line by the second (seen: stock \"34,83\", ours \"1,12\"); Zig seeds by nanoseconds",
 };
 
 async function one(w: Work): Promise<string> {
