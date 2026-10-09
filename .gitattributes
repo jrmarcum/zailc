@@ -1,0 +1,15 @@
+# LF everywhere, in the repo AND in every checkout, whatever core.autocrlf says (owner rule from
+# zilc, 2026-10-01: "use LF standardly throughout"; "CRLF is a continual issue"). Git for Windows'
+# default core.autocrlf=true would otherwise check text out as CRLF: `sh` then fails on the
+# trailing \r, and exact-text matching (the byte-identity checks on generated files) breaks.
+* text=auto eol=lf
+
+# Binary files: never converted.
+*.o binary
+*.a binary
+*.so binary
+*.xz binary
+*.zip binary
+*.png binary
+*.jpg binary
+*.wasm binary
