@@ -11,19 +11,30 @@ same objects or same behaviour where code is compiled.
       v0.686 (`testing.md`).
 - [x] **`find_clang_include_dir.rb`**: not ported; `build.zig` will use Zig's own `lib/include`
       (`design-decisions.md`).
-- [ ] **The stock-compiled half of the runtime through `build.zig`** (zilc proved it buildable by
-      Zig 0.15.2 alone in a scratch copy, 2026-10-05): yolo musl (static + shared, configure and
-      generated headers redone in `build.zig` or vendored), compiler-rt builtins + crtbegin/end,
-      `libyolounwind` (60 lines), libpas's 179 C objects + `.S` with the three quirks
-      (`-march=x86_64_v2` spelling; `-target x86_64-linux-none` so Fil-C's patched musl headers
-      win; `__cpu_indicator_init` from compiler-rt's `cpu_model/x86.c`), `filc_native.h` +
-      `filc_native_forwarders.c` from `zailc-gen` at build time.
+- [x] **musl's header install in Zig** (2026-10-08): `zailc-gen musl-headers` writes the
+      `yolo-include` tree byte-identical to `make install-headers` (219 files; `testing.md`).
+- [x] **libpas's stock half, `filc_crt.o`, `filc_mincrt.o`, `libyolounwind.a` through
+      `build.zig`** (2026-10-08): `zig build libpas -Dfilc-src=… -Dpizfix=…`, upstream's flags under
+      Zig's clang (`-W -Werror` clean), 178 objects; every object defines exactly upstream's
+      global symbols (`tools/runtime/verify-libpas.ts`; one undefined-symbol difference, W-4).
+      The quirks zilc found: `x86_64_v2` is the CPU model; `x86_64-linux-none` keeps Zig's musl
+      headers out; `__cpu_indicator_init` is a LINK-time need (compiler-rt), next item.
+- [ ] **Link and run**: a Fil-C program linked from zailc's `libpizlo-stock.a` + the five
+      `fil-pizlo-*.o` (Fil-C-compiled; from the tarball's `libpizlo.a` until the item below) +
+      the tarball's `libyoloc`, `libyolort`, crt files runs and traps out-of-bounds (exit 133,
+      `filc safety error`); then zilc's corpus against it.
+- [ ] **yolo musl's libraries through `build.zig`**: `libyoloc.a`/`.so`, `crt1.o`, `crti.o`,
+      `crtn.o`, `Scrt1.o`, `rcrt1.o`, `ld-fil1-x86_64.so`; 1,515 C + 283 asm files with musl's
+      arch-override rule, the per-file flag classes (`-fPIE` objects, `-fPIC` `.lo`, CRT, NOSSP,
+      MEMOPS) and `configure`'s flag set (`config.mak` in `~/zailc-work/ref/yolomusl`); a source
+      importer like `import-libpas-sources.ts`. Oracle: the tarball's `libyoloc.a`.
+- [ ] **compiler-rt builtins** (`libyolort.a`, `crtbegin.o`, `crtend.o`) through `build.zig`, or
+      Zig's own compiler_rt plus `cpu_model/x86.c`; decide by what `__cpu_indicator_init` needs.
 - [ ] **The three Fil-C-compiled pieces** (`filc/src` ~2.5k lines, user libc ~102k, libc++ /
       libc++abi): through Fil-C's clang inside `zig build` as the interim (open row in
       `design-decisions.md`).
-- [ ] **A Fil-C program linked entirely from `zig build`'s outputs** runs, traps out-of-bounds
-      (exit 133, `filc safety error`), and zilc's corpus passes against it as it does against the
-      prebuilt runtime.
+- [ ] **A Fil-C program linked entirely from `zig build`'s outputs** runs, traps out-of-bounds,
+      and zilc's corpus passes against it as it does against the prebuilt runtime.
 - [ ] **Fil-C's own test suite** against the `zig build` runtime (zilc's `run-filc-tests.ts`).
 
 ## Step 3 — the pass in Zig

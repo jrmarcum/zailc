@@ -9,8 +9,9 @@ through stock).
 
 | piece | the oracle's output | the comparison |
 | --- | --- | --- |
-| a generated file (today: `filc_native.h`, `filc_native_forwarders.c`) | Ruby's output from the pinned Fil-C tree | `cmp`: byte-identical. SHA-256 pinned in the Zig tests; `tools/gen/verify-forwarders.ts` reruns Ruby |
-| a compiled runtime object (step 2) | the same source compiled by upstream's build (`libpas/build.sh`), from zilc's prebuilt or from-source trees | first the symbols and sizes (`nm`, `size`), then behaviour: zilc's corpus and Fil-C's test suite linked against zailc's objects |
+| a generated file (`filc_native.h`, `filc_native_forwarders.c`) | Ruby's output from the pinned Fil-C tree | `cmp`: byte-identical. SHA-256 pinned in the Zig tests; `tools/gen/verify-forwarders.ts` reruns Ruby |
+| a generated header tree (`yolo-include`) | musl's `./configure && make install-headers` on the pinned `projects/yolomusl` | `diff -r`: identical trees (`tools/gen/verify-musl-headers.ts`) |
+| a compiled runtime object (step 2) | the release tarball's objects, built by upstream (`pizfix/lib/libpizlo.a` members `pas-pizlo-release-*.o`, `filc_crt.o`, `filc_mincrt.o`, `libyolounwind.a`) | the set of DEFINED global symbols per object must be equal; undefined symbols reported (`tools/runtime/verify-libpas.ts`; the why of this level: `design-decisions.md`). Then behaviour: link, run, trap; zilc's corpus and Fil-C's test suite against zailc's objects |
 | IR after the pass (step 3) | Fil-C's clang on the same input module (`-S -emit-llvm` after the pass) | textual diff modulo names, then behaviour: zilc's corpus and Fil-C's suite |
 
 ## Where the oracle lives on the development machine (inside WSL)
@@ -19,6 +20,8 @@ through stock).
 | --- | --- | --- |
 | Fil-C source, FULL tree (cosmo flavour, built) | `~/zilc-work/filc-cosmo` | `163fae598eaf249b74065b0156f3a7e7ba8c0e5a` = v0.686; `build/bin/clang`, `pizfix/`. **The default source tree for zailc's tools** |
 | Fil-C source, musl flavour | `~/zilc-work/filc-src/repo` | same commit, but a PARTIAL checkout (no `libpas/src/libpas/generate_pizlonated_forwarders.rb`); not usable as the generator oracle |
+| **Fil-C release tarball** (musl flavour, upstream-built) | `~/zilc-work/tools/filc-0.686-linux-x86_64` | `pizfix/lib/libpizlo.a` (183 members: 178 `pas-pizlo-release-*.o` + 5 `fil-pizlo-*.o`), `filc_crt.o`, `filc_mincrt.o`, `libyolounwind.a`, `libyoloc.a`, `libyolort.a`, crt files; `pizfix/os-include`, `pizfix/stdfil-include` (but NO `yolo-include`: that is generated). **The object oracle, and the `-Dpizfix` for `zig build libpas`** |
+| musl header oracle | `~/zailc-work/ref/yolomusl/out/include` | produced by `verify-musl-headers.ts` from the pinned tree with the host clang (`config.mak` there records configure's flag set, useful for the yolo musl library item) |
 | Fil-C prebuilt (stock) | `~/zilc-work/tools/filc-0.686-linux-x86_64` | the release tarball |
 | Fil-C with zilc's patches (built) | `~/zilc-work/tools/filc-0.686-zilc` | zilc's `tools/filc/patch-*.ts` |
 | Zig 0.15.2 | `~/zilc-work/tools/zig-0.15.2/zig` | `zig version` → `0.15.2` |

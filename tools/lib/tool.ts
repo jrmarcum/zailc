@@ -61,6 +61,14 @@ export function filcSrc(): string {
   return existsSync(own) ? own : `${HOME}/zilc-work/filc-cosmo`;
 }
 
+/**
+ * The Fil-C RELEASE tarball for FILC_VERSION (musl flavour, built by upstream): the oracle for
+ * the runtime's objects and libraries. ZAILC_FILC_PREBUILT, else the one zilc's WSL setup unpacked.
+ */
+export function filcPrebuilt(): string {
+  return Deno.env.get("ZAILC_FILC_PREBUILT") ?? `${HOME}/zilc-work/tools/filc-${FILC_VERSION}-linux-x86_64`;
+}
+
 /** Throws unless `dir` is a git checkout at FILC_SHA. */
 export async function requireFilcSrc(): Promise<string> {
   const dir = filcSrc();

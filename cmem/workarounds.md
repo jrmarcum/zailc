@@ -43,3 +43,44 @@ found**, **Recognising a relative**, **Cost and exit**, **Where**.
   which `tools/lib/tool.ts` `zigCacheArgs()` adds to every build the tools run. Same as zilc's
   practice (`wsl-available` memory: toolchains and build output in the WSL home).
 - **Where.** `tools/lib/tool.ts`; `testing.md` commands.
+
+### W-3. `-nostdinc` also drops Zig's bundled clang headers (2026-10-08)
+
+- **Symptom.** Compiling libpas with upstream's `-nostdinc` under Zig's clang: `stddef.h`,
+  `stdarg.h`, `stdbool.h`, `stdalign.h` not found.
+- **Class.** By design (clang): `-nostdinc` removes every default include directory, the compiler's
+  own resource headers included. Upstream has the same need and solves it with
+  `find_clang_include_dir.rb` (`-isystem` the host clang's resource dir).
+- **Fix.** `build.zig` adds `-isystem <zig lib_dir>/include`, which is where Zig ships those
+  headers (`b.graph.zig_lib_directory`). This is the whole replacement for the Ruby script
+  (`design-decisions.md`).
+- **Recognising a relative.** Any upstream Makefile that pairs `-nostdinc` with a probed compiler
+  include dir: the probe becomes Zig's `lib/include`.
+- **Where.** `build.zig` `buildStockRuntime`.
+
+### W-4. `verse_heap_chunk_map_entry.o` lacks the `pas_panic` reference upstream's has (2026-10-08)
+
+- **Symptom.** `verify-libpas.ts`: `undefined differ verse_heap_chunk_map_entry.o: -pas_panic`.
+  Defined symbols equal; our object simply does not reference `pas_panic`.
+- **Class.** Compiler difference, not a port defect (surmised): an assertion or unreachable path
+  that Zig's clang 20.1.2 folds away at `-O3` and Fil-C's clang 20.1.8 keeps, or an inlining
+  decision. Not a workaround; recorded so the next person does not chase it.
+- **Ruled out.** A missing `#define` (the defined-symbol sets are equal and `PAS_FILC=1` is set);
+  a missing source (178 of 178 objects match by name).
+- **Exit.** Re-check at the link-and-run item: if behaviour matches (zilc's corpus, Fil-C's suite),
+  it stays an observation. If a test differs around chunk-map entries, diff the two objects'
+  disassembly (`objdump -d`) first.
+- **Where.** `testing.md` results; `tools/runtime/verify-libpas.ts`.
+
+### W-5. The `musl-headers` run step is cached by its arguments, not by the musl tree (2026-10-08)
+
+- **Symptom.** After an upstream pin move (or an edit in `projects/yolomusl`), `zig build libpas`
+  may reuse a stale `yolo-include` from the cache.
+- **Class.** Zig build semantics: a `Run` step with `addOutputDirectoryArg` is keyed on its
+  arguments and the generator binary; the musl source tree is a plain path argument, not a
+  declared file input.
+- **Fix today.** None needed while the pin is fixed; `verify-musl-headers.ts` regenerates into
+  `$WORK/gen` outside the cache. **Exit:** declare the tree as an input (hash its header files
+  into the step, or make zailc-gen print a manifest the step depends on) when the pin first
+  moves; or clear `~/zailc-work/zig-cache`.
+- **Where.** `build.zig` `buildStockRuntime` (`headers`).

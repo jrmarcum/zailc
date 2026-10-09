@@ -23,6 +23,14 @@ generators; a user's `zig build` may rely on Zig alone, so they become Zig.
   upstream's file, so an upstream change is a re-run, not a transcription.
 - `zig build test` proves the bytes (SHA-256 of both outputs against Ruby's);
   `deno run -A tools/gen/verify-forwarders.ts` proves them again against a live Ruby run.
+- `zailc-gen musl-headers`: **musl's `make install-headers` in Zig** (the `yolo-include` tree
+  libpas compiles against), byte-identical to upstream's, 219 files.
+- `zig build libpas -Dfilc-src=<Fil-C tree>`: **the stock-compiled half of Fil-C's runtime from
+  upstream's sources**, with upstream's flags, under Zig's clang: `libpizlo-stock.a` (178 objects),
+  `filc_crt.o`, `filc_mincrt.o`, `libyolounwind.a`. Every object defines exactly the global
+  symbols of upstream's own build (`tools/runtime/verify-libpas.ts`). Nothing is copied from or
+  written into the Fil-C tree. Not yet in it: the five objects Fil-C's own clang compiles
+  (`filc/src`), yolo musl's libraries and compiler-rt's builtins.
 
 ## How to run
 
