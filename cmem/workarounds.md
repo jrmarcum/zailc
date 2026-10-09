@@ -299,7 +299,7 @@ reduced and confirmed the same night.
 - **Recognising a relative.** Any tool behaving differently when started from Windows than from a WSL
   shell: compare the environment it received.
 - **Debris, removed.** Before the fix it also left a 7.8 MB Zig cache in the REPO ROOT, in a directory
-  literally named after the Windows path (WSL maps `:` and `` to private-use characters). Found
+  literally named after the Windows path (WSL maps `:` and `\` to private-use characters). Found
   untracked after the merge and deleted 2026-10-09; nothing referenced it.
 - **Where.** `tools/lib/tool.ts` `linuxOnly`.
 
