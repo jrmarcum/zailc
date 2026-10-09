@@ -26,15 +26,12 @@ a notice and releases nothing; `publish.yml` refuses even a hand-pushed `v*` tag
 gate is the owner's decision**, made as its own commit (`closed` → `open`) on a branch, merged
 with `--no-ff`. Once it is open, everything below applies unchanged.
 
-**Current state (2026-10-08, late evening):** version `0.1.0` in `build.zig.zon`; nothing
-released, no tag. The remote `github.com/jrmarcum/zailc` exists; its `main` is still the
-`First publish` commit (`8a73338`, pushed BEFORE the workflows existed, so nothing ran). Local
-`main` is ahead and unpushed, by `--no-ff` merges only (`git log --oneline --first-parent
-origin/main..main`): the release rules, the CI/release workflows, step 2 (the stock half of the
-runtime), the day-one state and the day-one review fixes. The branches `step2/stock-runtime` and
-`docs/state-2026-10-08` are on the remote (a branch push triggers nothing). **The release gate is
-`closed`**, so the next push of `main` runs CI and auto-tag for the first time on GitHub and
-releases nothing; it is safe to push `main` (the owner's call when). Several sessions commit to
+**Current state (2026-10-08, night):** version `0.1.0` in `build.zig.zon`; nothing released, no
+tag. **The release gate is `closed`.** `main` is pushed to `github.com/jrmarcum/zailc`; the first
+push with the workflows (`8a73338..a75acda`) ran both on GitHub: CI success (format, tests,
+smoke); "Auto-tag on version bump" success, with "Read the release gate" run and "Read version"
+and "Create and push the tag" SKIPPED, and its Publish job skipped; the repo has no tag and no
+release (GitHub API, checked). From here `main` is pushed as finished branches land. Several sessions commit to
 this repo concurrently: re-read `git log` before merging into `main`.
 
 ## The version scheme

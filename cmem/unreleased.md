@@ -2,7 +2,7 @@
 
 **As of 2026-10-08 (late evening): nothing has been released.** `build.zig.zon` reads `0.1.0`,
 there is no tag, and the release gate (`.github/release-gate`) is `closed`, so pushing `main`
-releases nothing. The first release will be `v0.1.0`, and only after Fil-C is fully converted to
+releases nothing (proven on GitHub at the first push, `a75acda`). The first release will be `v0.1.0`, and only after Fil-C is fully converted to
 Zig and verified against zilc's setups (owner, 2026-10-08), when the owner opens the gate. Rules:
 [releasing.md](releasing.md).
 
