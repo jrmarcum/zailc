@@ -3,8 +3,12 @@
 zailc ports Fil-C's runtime and compiler pass to Zig and checks every piece against upstream
 Fil-C and against zilc. While doing so we found the issues below in projects we depend on. Each
 has a small, self-contained reproduction in this repository and was confirmed with the upstream
-project alone, with no zailc code involved. They are listed for the maintainers' information.
-zailc reproduces upstream's behaviour until a fix exists.
+project alone, with no zailc code involved.
+
+**This file is where zailc publishes them.** We don't file them in the upstream projects'
+trackers; maintainers are welcome to reference and link to the entries here. Each entry is kept
+current: corrected if our understanding changes, and marked fixed, with the version, once
+upstream fixes it. zailc reproduces upstream's behaviour until a fix exists.
 
 How each entry was established, and what zailc does about it, is recorded in
 [`cmem/workarounds.md`](cmem/workarounds.md) under the entry number given.

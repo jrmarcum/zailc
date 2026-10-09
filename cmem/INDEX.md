@@ -33,7 +33,8 @@ small. Modeled on zilc's `cmem/` (same author), which is modeled on wazmrt's.
   clang are scaffolding and oracle only, each retired by a roadmap item. `design-decisions.md`.
 - 🐞 **Upstream defects are documented in full before any workaround or fix** (owner, 2026-10-08):
   what, why it is a defect against upstream's own contract, how it was confirmed with upstream
-  alone; `workarounds.md` template, `tests/upstream/`, `UPSTREAM-ISSUES.md`. First entry: W-7.
+  alone; `workarounds.md` template, `tests/upstream/`. Published in `UPSTREAM-ISSUES.md` ONLY:
+  nothing is filed upstream, upstream references the file. First entry: W-7.
 - ✅ **Step 2, link and run (2026-10-08, night):** `tools/runtime/link-run.ts` links each
   `tests/link/` program statically against upstream's runtime and against ours; 10/10 variants
   identical (traps, GC, threads, signals, C++ exceptions). Fixed on the way: `__FILE__` paths
