@@ -76,3 +76,58 @@ heads (`scheduleChecks`) is the likely one.
 
 **Suggested fix:** in a landing-pad block, emit `filc_landing_pad` first, and never schedule
 other code (getters, checks) above it.
+
+### 2. `_Float16` conversions return wrong values: the release's libyolort was built without `_Float16` (W-10)
+
+Version: **Fil-C 0.686** prebuilt release (`filc-0.686-linux-x86_64`, commit `163fae5`). Linux
+x86_64 (Ubuntu 26.04 under WSL2).
+
+Reproduction: [`tests/upstream/filc-0.686-float16-libyolort.c`](tests/upstream/filc-0.686-float16-libyolort.c)
+
+```c
+__attribute__((noinline)) static _Float16 to_half(float f) { return (_Float16)f; }
+__attribute__((noinline)) static float from_half(_Float16 h) { return (float)h; }
+/* 1.5f, -2.25f, 65504.0f each go to half and back */
+```
+
+```sh
+clang -O1 filc-0.686-float16-libyolort.c -o repro && ./repro
+```
+
+```
+1.5 -> half 0x0000 -> 0.00830078
+-2.25 -> half 0x0000 -> 0.00830078
+65504 -> half 0xe000 -> 0.00830078
+WRONG
+```
+
+Exit code 1. Expected: `1.5 -> half 0x3e00 -> 1.5`, `-2.25 -> half 0xc080 -> -2.25`,
+`65504 -> half 0x7bff -> 65504`, `ok`. The same happens statically and dynamically linked.
+
+**Cause (measured).**
+
+1. Fil-C's clang targets `x86-64-v2` (no F16C), so it lowers `float` <-> `_Float16` to the
+   compiler-rt calls `__truncsfhf2` and `__extendhfsf2`. It passes and expects the half value in
+   `%xmm0`, the x86-64 calling convention for `_Float16`.
+2. The release's `pizfix/lib/libyolort.a` (compiler-rt's builtins) was compiled by **GCC 11.4**:
+   its objects' `.comment` is `GCC: (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0`. GCC 11 has no
+   `_Float16` on x86, so compiler-rt's CMake leaves `COMPILER_RT_HAS_FLOAT16` undefined. The
+   half routines are then built with `uint16_t` in place of `_Float16`, and the archive's
+   `__extendhfsf2` reads its argument from `%edi`:
+   ```
+   __extendhfsf2:  endbr64;  mov %edi,%eax;  mov %edi,%edx;  ...
+   ```
+   Further evidence: the archive's `extendhftf2.c.o` and `trunctfhf2.c.o` are empty, because those
+   files are compiled only under `COMPILER_RT_HAS_FLOAT16`.
+3. So the caller passes the half in `%xmm0` and the callee reads `%edi`, and the result is
+   whatever that register held.
+
+Confirmed in two directions. compiler-rt built from the same sources by a compiler with
+`_Float16` (compiler-rt's own CMake, configured for clang, defines `COMPILER_RT_HAS_FLOAT16`)
+produces an `__extendhfsf2` that reads `%xmm0` (`pextrw $0x0,%xmm0,%eax`). Linking the
+reproduction against that archive, with everything else from the release, prints the expected
+values and exits 0.
+
+**Suggested fix:** build `libyolort.a` with a compiler that supports `_Float16` on x86-64 (GCC 12
+or later, or clang), so `COMPILER_RT_HAS_FLOAT16` is set. Alternatively, have Fil-C's clang call the
+integer-ABI entry points, though that would diverge from LLVM's convention.

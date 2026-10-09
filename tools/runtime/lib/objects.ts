@@ -42,6 +42,103 @@ export function readArchive(bytes: Uint8Array): Member[] {
 /** The base name of a member, without its directory (Zig names members by their cache path). */
 export const baseName = (name: string) => name.split("/").pop()!;
 
+/** A member's stem, whatever the build called it: `aio.lo` (musl), `absvdi2.c.o` (CMake),
+ *  `<zig cache path>/aio.o` (ours) are `aio`, `absvdi2`, `aio`. */
+export const memberStem = (name: string) => baseName(name).replace(/\.(lo|o)$/, "").replace(/\.(c|S|s)$/, "");
+
+/** What one object oracle allows between ours and upstream's: undefined symbols that only the
+ *  compilers' differences explain (each set with its workarounds.md entry), and how source paths
+ *  must look. Everything else must be equal. */
+export interface Policy {
+  oursOnlyUndef: Set<string>;
+  theirsOnlyUndef: Set<string>;
+  /** Global symbols only OUR objects may define, each explained by a recorded departure (e.g. the
+   *  `_Float16` routines GCC 11.4 could not build; workarounds.md W-10). Default: none. */
+  oursOnlyDefined?: Set<string>;
+  /** The workarounds.md entry that explains the sets (quoted in failures). */
+  why: string;
+  /** Is a path carried in read-only data (`__FILE__`) in upstream's form? */
+  sourceForm: (p: string) => boolean;
+}
+
+/**
+ * Compares objects, and archives member by member IN ORDER, under a Policy, counting what the
+ * ratchets need. Each check prints its own failure line; `failures` counts them.
+ */
+export class Oracle {
+  failures = 0;
+  cuCompared = 0;
+  emptyTu = 0;
+  undefDiffering = 0;
+  /** Symbols ours defines under `oursOnlyDefined` (a departure's count, ratcheted by the caller). */
+  departedDefined = 0;
+  constructor(private policy: Policy) {}
+
+  fail(msg: string) {
+    this.failures++;
+    console.log(msg);
+  }
+
+  /** Defined globals with binding equal; undefined equal but for the policy's sets; source paths
+   *  in upstream's form; compile-unit names equal (an empty translation unit, which only GCC gives a
+   *  compile unit, is counted instead). Returns whether undefined symbols differed (allowed). */
+  async pair(label: string, ours: string, theirs: string): Promise<boolean> {
+    const [dA, dB] = await Promise.all([definedWithType(ours), definedWithType(theirs)]);
+    const allowed = this.policy.oursOnlyDefined ?? new Set<string>();
+    const extra = diff(dA, dB).filter((s) => !allowed.has(s.split(" ")[0]));
+    const departed = diff(dA, dB).filter((s) => allowed.has(s.split(" ")[0]));
+    if (extra.length || diff(dB, dA).length) this.fail(`DEFINED DIFFERS  ${label}: +${extra.join(",")} -${diff(dB, dA).join(",")}`);
+    this.departedDefined += departed.length;
+    const [uA, uB] = await Promise.all([symbols(ours, ["-u"]), symbols(theirs, ["-u"])]);
+    const plus = diff(uA, uB), minus = diff(uB, uA);
+    const bad = [
+      ...plus.filter((s) => !this.policy.oursOnlyUndef.has(s)).map((s) => `+${s}`),
+      ...minus.filter((s) => !this.policy.theirsOnlyUndef.has(s)).map((s) => `-${s}`),
+    ];
+    if (bad.length) this.fail(`UNDEFINED DIFFERS  ${label}: ${bad.join(",")} (outside the compiler-difference sets, ${this.policy.why})`);
+    for (const p of await sourcePaths(ours)) if (!this.policy.sourceForm(p)) this.fail(`SOURCE PATH FORM  ${label}: ${p}`);
+    const [cA, cB] = await Promise.all([compileUnitNames(ours), compileUnitNames(theirs)]);
+    if (cA.join("|") === cB.join("|")) this.cuCompared += cA.length;
+    else if (cA.length === 0 && dB.size === 0 && uB.size === 0) this.emptyTu++;
+    else this.fail(`COMPILE UNIT NAME  ${label}: ours ${cA.join(",") || "(none)"}, upstream's ${cB.join(",") || "(none)"}`);
+    const differed = plus.length + minus.length > 0;
+    if (differed) this.undefDiffering++;
+    return differed;
+  }
+
+  /** Two archives member by member, paired by POSITION (names can repeat) and checked by stem. */
+  async archives(label: string, oursPath: string, theirsPath: string): Promise<number> {
+    const ours = readArchive(await Deno.readFile(oursPath));
+    const theirs = readArchive(await Deno.readFile(theirsPath));
+    if (ours.length !== theirs.length) this.fail(`MEMBER COUNT  ${label}: ours ${ours.length}, upstream's ${theirs.length}`);
+    const tmp = await Deno.makeTempDir();
+    let compared = 0;
+    try {
+      for (let i = 0; i < Math.min(ours.length, theirs.length); i++) {
+        const a = memberStem(ours[i].name), t = memberStem(theirs[i].name);
+        if (a !== t) {
+          this.fail(`MEMBER ORDER  ${label} #${i}: ours ${a}, upstream's ${t}`);
+          continue;
+        }
+        await Deno.writeFile(`${tmp}/a.o`, ours[i].data);
+        await Deno.writeFile(`${tmp}/b.o`, theirs[i].data);
+        await this.pair(`${label} #${i} ${t}`, `${tmp}/a.o`, `${tmp}/b.o`);
+        compared++;
+      }
+    } finally {
+      await Deno.remove(tmp, { recursive: true });
+    }
+    return compared;
+  }
+
+  /** A recorded count that must stay exactly as recorded. */
+  ratchet(name: string, actual: number, budget: number) {
+    if (actual !== budget) {
+      this.fail(`${name} RATCHET  ${actual}, budget ${budget}: ${actual > budget ? "new differences; read them before raising it" : "fewer than recorded; lower the budget"}`);
+    }
+  }
+}
+
 /** `nm -P <flags>` names (archives: member headers dropped). */
 export async function symbols(obj: string, flags: string[]): Promise<Set<string>> {
   return new Set(nmLines(await must(["nm", "-P", ...flags, obj])).map((l) => l.split(" ")[0]));
