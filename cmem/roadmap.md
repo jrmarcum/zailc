@@ -33,11 +33,19 @@ same objects or same behaviour where code is compiled.
       takes the objects from zilc's final link line and links them against upstream's runtime and
       ours: **156/156 programs** (78 C, 78 Zig): 137 identical, 19 that vary by themselves
       (times, random numbers, thread order) with the same shape; 0 differ.
-- [ ] **yolo musl's libraries through `build.zig`**: `libyoloc.a`/`.so`, `crt1.o`, `crti.o`,
-      `crtn.o`, `Scrt1.o`, `rcrt1.o`, `ld-fil1-x86_64.so`; 1,515 C + 283 asm files with musl's
-      arch-override rule, the per-file flag classes (`-fPIE` objects, `-fPIC` `.lo`, CRT, NOSSP,
-      MEMOPS) and `configure`'s flag set (`config.mak` in `~/zailc-work/ref/yolomusl`); a source
-      importer like `import-libpas-sources.ts`. Oracle: the tarball's `libyoloc.a`.
+- [x] **yolo musl's static half through `build.zig`** (2026-10-09): `zig build yolomusl` builds
+      `libyoloc.a` (1,343 members), `crt1.o`, `Scrt1.o`, `rcrt1.o`, `crti.o`, `crtn.o` and
+      the empty `libyolom.a`. `import-yolomusl-sources.ts` evaluates the Makefile's rules (the
+      member list matches upstream's name by name, in order) and takes the flags from musl's
+      configure run with `zig cc`. Oracle (`verify-yolomusl.ts`): every member and crt object
+      defines upstream's symbols, binding included, and has upstream's compile-unit names; the
+      GCC-vs-clang residue is W-8, ratcheted. In the two-runtime oracle: `link-run.ts` 12/12 and
+      zilc's corpus (`testing.md`) with our `libyoloc.a`, `libyolom.a`, `rcrt1.o`, `crti.o`,
+      `crtn.o`.
+- [ ] **yolo musl's shared half**: `libyoloc.so` (LOBJS + LDSO_OBJS `dlstart`/`dynlink`, linked
+      `-nostdlib -shared -Wl,-e,_dlstart` with LDFLAGS_AUTO and `LIBCC` = libyolort) and
+      `ld-fil1-x86_64.so` (a link to it). Needs libyolort (next item) for `LIBCC`. Oracle: the
+      tarball's `libyoloc.so` (dynamic symbols) and a dynamically linked Fil-C program.
 - [ ] **compiler-rt builtins** (`libyolort.a`, `crtbegin.o`, `crtend.o`) through `build.zig`, or
       Zig's own compiler_rt plus `cpu_model/x86.c`; decide by what `__cpu_indicator_init` needs.
 - [ ] **The three Fil-C-compiled pieces** (`filc/src` ~2.5k lines, user libc ~102k, libc++ /

@@ -73,10 +73,28 @@ pub fn install(gpa: Allocator, musl_src: []const u8, out_dir: []const u8, arch: 
     var out = try std.fs.cwd().makeOpenPath(out_dir, .{});
     defer out.close();
 
+    try write(arena, src, out, try inputs(arena, musl_src, arch), .all);
+}
+
+/// Only the two generated headers, `bits/alltypes.h` and `bits/syscall.h`: musl's own build puts
+/// them alone in `obj/include` (its GENH), searched before `include/`, when it compiles libc.
+pub fn installGenerated(gpa: Allocator, musl_src: []const u8, out_dir: []const u8, arch: []const u8) !void {
+    var arena_state: std.heap.ArenaAllocator = .init(gpa);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+
+    var src = try std.fs.cwd().openDir(musl_src, .{});
+    defer src.close();
+    var out = try std.fs.cwd().makeOpenPath(out_dir, .{});
+    defer out.close();
+    try write(arena, src, out, try inputs(arena, musl_src, arch), .generated_only);
+}
+
+fn write(arena: Allocator, src: std.fs.Dir, out: std.fs.Dir, list: []const Input, what: enum { all, generated_only }) !void {
     var alltypes: Out = .empty;
     var syscall: Out = .empty;
-    for (try inputs(arena, musl_src, arch)) |in| switch (in.use) {
-        .copy => |dir| {
+    for (list) |in| switch (in.use) {
+        .copy => |dir| if (what == .all) {
             var dest = try out.makeOpenPath(dir, .{});
             defer dest.close();
             try src.copyFile(in.path, dest, std.fs.path.basename(in.path), .{});
@@ -84,6 +102,7 @@ pub fn install(gpa: Allocator, musl_src: []const u8, out_dir: []const u8, arch: 
         .alltypes => try allTypes(arena, try readFile(arena, src, in.path), &alltypes),
         .syscall => try syscallHeader(arena, try readFile(arena, src, in.path), &syscall),
     };
+    try out.makePath("bits");
     try out.writeFile(.{ .sub_path = "bits/alltypes.h", .data = alltypes.items });
     try out.writeFile(.{ .sub_path = "bits/syscall.h", .data = syscall.items });
 }

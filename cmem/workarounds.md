@@ -229,3 +229,43 @@ reduced and confirmed the same night.
 
 - **Where.** `tests/upstream/filc-0.686-landing-pad-can-catch.cpp`, `UPSTREAM-ISSUES.md`,
   `tests/link/eh_dtor_writes_global.cpp`, `tests/link/exceptions.cpp`, `tools/runtime/link-run.ts`.
+
+### W-8. yolo musl: what GCC (upstream's release) and Zig's clang emit differently (2026-10-09)
+
+- **Symptom.** `verify-yolomusl.ts`. All 1,343 members of `libyoloc.a` define exactly
+  upstream's global symbols, binding included. But 28 members differ in their UNDEFINED symbols,
+  and one member has a DWARF compile unit in upstream's build and none in ours:
+  - upstream's members reference `_GLOBAL_OFFSET_TABLE_` where ours don't (20 members only that,
+    3 with `+memset` too);
+  - ours call `memcpy`/`memset` in 8 members where upstream's don't;
+  - `src/linux/cache.c` has a compile unit only in upstream's build.
+- **Class.** Compiler difference, not a port defect and not an upstream defect. Upstream's release
+  was compiled by GCC 12.3 (`.comment`: `GCC: (Ubuntu 12.3.0-1ubuntu1~22.04.3) 12.3.0`;
+  `DW_AT_producer`: `GNU C99 12.3.0 -mtune=generic -march=x86-64 -g -O2 -std=c99 ...`). zailc
+  compiles with Zig's clang (owner: only Zig).
+- **Root cause (measured).**
+  - GCC's PIC code names the GOT symbol explicitly; clang's does not.
+  - Clang lowers some struct copies and zeroings to `memcpy`/`memset` calls where GCC inlines
+    them. Both functions are defined by this same libc, so the references resolve inside it.
+  - `cache.c` compiles to nothing on x86_64: all three of its `#ifdef SYS_cacheflush` /
+    `SYS_cachectl` / `SYS_riscv_flush_icache` blocks are out. Upstream's `cache.lo` has no
+    symbols at all, only a 738-byte debug skeleton: GCC emits a compile unit for an empty
+    translation unit and clang does not.
+- **Why allowing them is correct.** None of these changes what the archive provides (the defined
+  symbols are equal) or what it needs from outside it. `memcpy`/`memset` are its own members,
+  and `_GLOBAL_OFFSET_TABLE_` is supplied by the linker. Behaviour is checked separately:
+  `link-run.ts` 12/12 and zilc's corpus with our `libyoloc.a`.
+- **How it is held.** `verify-yolomusl.ts` allows ONLY `+memcpy`, `+memset` and
+  `-_GLOBAL_OFFSET_TABLE_`, in exactly 28 members (`UNDEF_BUDGET`). It allows a missing compile
+  unit only where upstream's member defines and references nothing, exactly once
+  (`EMPTY_TU_BUDGET`). Anything else, or a changed count, fails.
+- **Ruled out.**
+  - A flag difference causing the memcpy/memset calls: the flags are configure's for clang, and
+    differ from the host-clang configure only in link flags and AOBJS.
+  - A missing source for `cache.c`: the member is present and its symbols are equal (none).
+- **Recognising a relative.** Any upstream object built by GCC compared with ours: expect the GOT
+  symbol, libc-call lowering, and empty-translation-unit debug info to differ. The other GCC-built
+  pieces are libyolort and crtbegin/crtend, if upstream built them with GCC too.
+- **Cost and exit.** None at run time. It lasts as long as the oracle is a GCC-built release.
+- **Where.** `tools/runtime/verify-yolomusl.ts` (`OURS_ONLY_UNDEF`, `THEIRS_ONLY_UNDEF`,
+  `UNDEF_BUDGET`, `EMPTY_TU_BUDGET`).
