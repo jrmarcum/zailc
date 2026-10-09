@@ -97,6 +97,14 @@ const THREAD_ORDER: Record<string, string> = {
 };
 const anyOrder = (s: string) => JSON.stringify(shape(s).sort());
 
+// Programs that print the wall clock to the SECOND (`date`, `ls -la` times): two stock runs within
+// one second agree, and ours a second later differs only in digits. Always compared by shape (the
+// same lines once digits are masked), as zilc's compare-output.ts does (its EXPECTED has both).
+const CLOCK_SECONDS: Record<string, string> = {
+  "74_execing-processes": "runs `ls -la` on its working directory (times)",
+  "75_spawning-processes": "runs `date` and `ls -la` (seen: stock 18:48:35, ours 18:48:36)",
+};
+
 async function one(w: Work): Promise<string> {
   const id = `${w.lang} ${w.name}`;
   const b = `${base}/bin/${w.lang}/${w.name}`;
@@ -134,6 +142,10 @@ async function one(w: Work): Promise<string> {
   if (Object.hasOwn(THREAD_ORDER, w.name)) {
     const ok = o.code === s1.code && s1.code === s2.code && anyOrder(o.out) === anyOrder(s1.out);
     return ok ? `${id} SAME-LINES-ANY-ORDER (${how}; ${THREAD_ORDER[w.name]})` : `${id} LINES-DIFFER exit ours ${o.code} stock ${s1.code}/${s2.code}`;
+  }
+  if (Object.hasOwn(CLOCK_SECONDS, w.name)) {
+    const ok = o.code === s1.code && s1.code === s2.code && JSON.stringify(shape(o.out)) === JSON.stringify(shape(s1.out));
+    return ok ? `${id} VARIES-SAME-SHAPE (${how}; ${CLOCK_SECONDS[w.name]})` : `${id} SHAPE-DIFFERS exit ours ${o.code} stock ${s1.code}/${s2.code}`;
   }
   if (s1.code === s2.code && s1.out === s2.out) {
     if (o.code === s1.code && o.out === s1.out) return `${id} SAME (${how})`;
