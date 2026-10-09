@@ -1,7 +1,9 @@
 # Unreleased on `main` — what the next release note must say
 
-**As of 2026-10-08: nothing has been released.** `build.zig.zon` reads `0.1.0`, there is no tag,
-and there is no remote. The first release will be `v0.1.0`, whenever the owner decides. Rules:
+**As of 2026-10-08 (late evening): nothing has been released.** `build.zig.zon` reads `0.1.0`,
+there is no tag, and the remote's `main` is still the `First publish` commit (local `main` is
+ahead and unpushed; the branch `step2/stock-runtime` is on the remote). The first release will be
+`v0.1.0`, whenever the owner decides; the next push of `main` makes it. Rules:
 [releasing.md](releasing.md).
 
 ## How to use this file

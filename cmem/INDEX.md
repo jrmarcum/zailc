@@ -18,6 +18,12 @@ small. Modeled on zilc's `cmem/` (same author), which is modeled on wazmrt's.
 
 ## ▶️ 2026-10-08 — DAY ONE. START HERE
 
+- 🧭 **Git state at the end of day one (2026-10-08, late evening):** remote `main` =
+  `First publish` (`8a73338`); local `main` = three unpushed `--no-ff` merges (release rules, the
+  CI/release workflows, step 2's stock runtime); branch `step2/stock-runtime` pushed to the
+  remote. No tag: **the next push of `main` releases `v0.1.0`** (`releasing.md`, owner's call).
+  Several sessions commit here concurrently: re-read `git log` before merging into `main`.
+
 - 🌱 **zailc started** (owner, 2026-10-05: "we will zag where they zig"; 2026-10-08: "Proceed with
   the zig-filc-scope.md and platforms.md brief"). The brief is `scope.md` (copied from zilc with
   one correction) plus the platform notes in `roadmap.md`. The decisions that frame everything are
@@ -59,7 +65,7 @@ small. Modeled on zilc's `cmem/` (same author), which is modeled on wazmrt's.
 | --- | --- |
 | [scope.md](scope.md) | **The brief** (from zilc's `zig-filc-scope.md`, 2026-10-05): the three steps sized, step 2's piece table, step 3's shape, costs and risks |
 | [vision.md](vision.md) | What zailc is for, in the owner's words, and how it differs from zilc |
-| [design-decisions.md](design-decisions.md) | The decisions table: Zig 0.15.2 pinned, zilc as oracle, byte-identical generated files, the WSL-only rule, licence, Deno tools, the imported signature table |
+| [design-decisions.md](design-decisions.md) | The decisions table: the name `zailc`, Zig 0.15.2 pinned, zilc as oracle, byte-identical generated files, the WSL-only rule, licence, Deno tools, the imported signature table, a push to `main` releases, the Fil-C tree as a read-only input, compile settings in Zig's terms, the symbol-level oracle for objects; plus the open questions |
 | [roadmap.md](roadmap.md) | Step 2 and step 3 broken into checkable items; what the cosmo evaluation and platform scope leave for zailc |
 | [oracle.md](oracle.md) | How zilc and Fil-C serve as the oracle: trees, versions, hashes, the comparison procedure |
 | [upstream.md](upstream.md) | Pinned Fil-C (v0.686, `163fae5`) and Zig (0.15.2); where they live on the development machine |

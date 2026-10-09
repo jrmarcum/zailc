@@ -18,11 +18,15 @@ release like binaryang does. That is how I would like this repository setup also
 it and runs `publish.yml`. That is why `main` only ever receives `--no-ff` merges from branches,
 and why the version bump is a separate, deliberate commit.
 
-**Current state (2026-10-08):** version `0.1.0` in `build.zig.zon`; nothing released, no tag, no
-remote. The workflows are committed but don't run until the repo is pushed to
-`github.com/jrmarcum/zailc`. ⚠️ **The FIRST push of `main` releases `v0.1.0`**, because no tag
-exists yet. Push only when `0.1.0` is meant to ship, or bump first. The first release is the
-owner's decision.
+**Current state (2026-10-08, late evening):** version `0.1.0` in `build.zig.zon`; nothing
+released, no tag. The remote `github.com/jrmarcum/zailc` exists; its `main` is still the
+`First publish` commit (`8a73338`, pushed BEFORE the workflows existed, so nothing ran). Local
+`main` is three `--no-ff` merges ahead and unpushed: the release rules, the CI/release workflows,
+and step 2 (the stock half of the runtime). The branch `step2/stock-runtime` is pushed (a branch
+push triggers nothing). ⚠️ **The NEXT push of `main` releases `v0.1.0`** and is the first time the
+workflows run on GitHub, because no tag exists yet. Push only when `0.1.0` is meant to ship, or
+bump first. The first release is the owner's decision. Several sessions commit to this repo
+concurrently: re-read `git log` before merging into `main`.
 
 ## The version scheme
 
