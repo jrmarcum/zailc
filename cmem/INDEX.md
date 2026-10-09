@@ -38,8 +38,10 @@ small. Modeled on zilc's `cmem/` (same author), which is modeled on wazmrt's.
   pad. On first use, the getter's slow path sets the frame's origin to one with `can_catch` 0,
   and the landing pad asserts on it. Proven by IR and by prediction. W-5 FIXED: the musl tree's
   files are declared inputs of the headers step, proven by an edit, an add and an inversion.
-- **Open, none blocking:**
-  - **`zailc-gen --version`:** releasing.md's preflight wants it (⏳ there).
+- ✅ **2026-10-09:** `zailc-gen --version` prints build.zig.zon's version (one source, through
+  `build_options`), the Zig that built it, and the Fil-C release its tables came from. CI checks
+  the version on every push; the release workflow checks it against the tag.
+- **Open:** none. Next is step 2 item 2 (above).
 - 🧭 **Git state (2026-10-08, night):** `main` is PUSHED and follows the `--no-ff` rule. Every
   push today ran green on GitHub (CI, including `deno check tools/`, and auto-tag with the gate
   read as closed and the tag steps skipped). No tag, no release. 🚦 **The release gate
