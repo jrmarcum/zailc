@@ -226,6 +226,8 @@ Selected 2026-10-08 (owner: "copy in the ones that are relevant to our specific 
   uncommitted and untouched (zailc, 2026-10-08, commit `15ab768`).
 - **Commit messages go through a file** (`git commit -F <file>`) written with the file tools, never
   a heredoc or a double-quoted `-m`. Every message ends with the session's attribution line.
+- **Merged branches are KEPT, never deleted** (owner, 2026-10-08: "keep the branches"): each
+  one is the record of a piece of work, next to its `--no-ff` merge.
 - **Prefer a new commit over `--amend`.** **Nothing is pushed unless the owner says so.**
 - **A re-baseline (a new reference hash or oracle output) goes in its OWN commit**, with the reason
   in the message (binaryang).
