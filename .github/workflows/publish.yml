@@ -1,0 +1,112 @@
+# Publish a release: a GitHub Release with CI-built binaries and build-provenance attestations.
+#
+# Runs on a `v*` tag push (a tag pushed by hand, e.g. a patch from a release branch) or when
+# called by auto-tag.yml after it creates the tag for a version bump on main.
+#
+# Release binaries are built HERE and only here, never locally (cmem/releasing.md). A binary
+# uploaded by hand carries no attestation, and that cannot be fixed on that version.
+#
+# Required permissions: contents: write (the release), id-token: write and attestations: write
+# (actions/attest-build-provenance).
+
+name: Publish release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_call:
+    inputs:
+      tag:
+        description: The tag to release (vX.Y.Z)
+        required: true
+        type: string
+
+concurrency:
+  group: publish-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish ${{ inputs.tag || github.ref_name }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - name: Checkout the tag
+        uses: actions/checkout@v6
+        with:
+          ref: refs/tags/${{ inputs.tag || github.ref_name }}
+
+      - name: Install Zig 0.15.2
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.15.2
+
+      - name: Verify build.zig.zon version matches the tag
+        run: |
+          V="$(sed -n 's/^    \.version = "\([^"]*\)",$/\1/p' build.zig.zon)"
+          if [ "v$V" != "$TAG" ]; then
+            echo "::error::tag $TAG does not match build.zig.zon version '$V'"
+            exit 1
+          fi
+          echo "Versions match: $TAG"
+
+      - name: Gates
+        run: |
+          zig fmt --check build.zig build.zig.zon src
+          zig build test --summary all
+
+      # One target for now: Fil-C 0.686 is x86_64 Linux only. zailc-gen is pure Zig, so add
+      # targets here when a consumer needs them.
+      - name: Build release binaries
+        run: |
+          set -e
+          DIST="$RUNNER_TEMP/dist"; mkdir -p "$DIST"
+          for T in x86_64-linux-musl; do
+            rm -rf zig-out
+            zig build -Doptimize=ReleaseSafe -Dtarget="$T"
+            NAME="zailc-$TAG-$T"
+            mkdir -p "$RUNNER_TEMP/$NAME"
+            cp zig-out/bin/zailc-gen README.md LICENSE-APACHE LICENSE-MIT NOTICE "$RUNNER_TEMP/$NAME/"
+            tar -C "$RUNNER_TEMP" -czf "$DIST/$NAME.tar.gz" "$NAME"
+          done
+          (cd "$DIST" && sha256sum *.tar.gz > SHA256SUMS)
+          cat "$DIST/SHA256SUMS"
+          echo "DIST=$DIST" >> "$GITHUB_ENV"
+
+      # Run what a user runs (cmem/releasing.md § preflight): the shipped binary, from the
+      # archive, must reproduce Ruby's header byte for byte.
+      - name: Smoke-test the shipped binary
+        run: |
+          set -e
+          mkdir -p "$RUNNER_TEMP/smoke"
+          tar -C "$RUNNER_TEMP/smoke" -xzf "$DIST/zailc-$TAG-x86_64-linux-musl.tar.gz"
+          "$RUNNER_TEMP/smoke/zailc-$TAG-x86_64-linux-musl/zailc-gen" header "$RUNNER_TEMP/smoke/filc_native.h"
+          echo "8dbba1005797433f44f5487c6edd43d4ec17193e22cc1b0d257166aa98d15510  $RUNNER_TEMP/smoke/filc_native.h" | sha256sum -c -
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: ${{ env.DIST }}/*.tar.gz
+
+      # Notes: CHANGELOG.md's section for this version if there is one, else GitHub's generated
+      # notes. The section runs from "## X.Y.Z" to the next "## ".
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          V="${TAG#v}"
+          NOTES="$RUNNER_TEMP/notes.md"
+          if [ -f CHANGELOG.md ]; then
+            awk -v h="## $V" '$0==h{on=1;next} on&&/^## /{exit} on' CHANGELOG.md > "$NOTES"
+          fi
+          if [ -s "$NOTES" ]; then
+            gh release create "$TAG" --title "zailc $TAG" --notes-file "$NOTES" --verify-tag "$DIST"/*
+          else
+            echo "::warning::no CHANGELOG.md section '## $V'; using generated notes"
+            gh release create "$TAG" --title "zailc $TAG" --generate-notes --verify-tag "$DIST"/*
+          fi

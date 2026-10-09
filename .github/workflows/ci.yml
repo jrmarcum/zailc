@@ -1,0 +1,45 @@
+# Continuous integration: is the tree correct?
+#
+# The local gate must BE this gate (cmem/best-practices.md § 5): every step here is one the
+# gate run in WSL also runs. Gates that need the Fil-C source tree or Ruby (the live Ruby diff,
+# `zig build libpas`) are not here, because CI has neither; they run in WSL (cmem/testing.md).
+#
+# An exit code is not evidence on its own. `zig build test` checks the generated files' SHA-256
+# against Ruby's, and the smoke step checks the shipped binary's own output.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  gates:
+    name: Gates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      # Pinned: Zig 0.15.2 bundles LLVM 20, the LLVM of Fil-C 0.686 (cmem/design-decisions.md).
+      # `minimum_zig_version` is not a pin, so the exact version is named here.
+      - name: Install Zig 0.15.2
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.15.2
+
+      - name: Format check
+        run: zig fmt --check build.zig build.zig.zon src
+
+      - name: Unit and byte-identity tests
+        run: zig build test --summary all
+
+      # Runs the binary the way a user does. Its header must hash to Ruby's
+      # (cmem/oracle.md; src/gen/forwarders.zig `ruby_sha256_header`).
+      - name: zailc-gen smoke
+        run: |
+          zig build
+          ./zig-out/bin/zailc-gen header "$RUNNER_TEMP/filc_native.h"
+          echo "8dbba1005797433f44f5487c6edd43d4ec17193e22cc1b0d257166aa98d15510  $RUNNER_TEMP/filc_native.h" | sha256sum -c -
