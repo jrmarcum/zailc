@@ -18,13 +18,12 @@ small. Modeled on zilc's `cmem/` (same author), which is modeled on wazmrt's.
 
 ## ▶️ 2026-10-08 — DAY ONE. START HERE
 
-- 🧭 **Git state at the end of day one (2026-10-08, late evening):** remote `main` =
-  `First publish` (`8a73338`); local `main` is ahead and unpushed, by `--no-ff` merges only
-  (release rules, the CI/release workflows, step 2's stock runtime, the day-one state, the
-  day-one review fixes). Branches on the remote: `step2/stock-runtime`, `docs/state-2026-10-08`.
-  No tag. 🚦 **The release gate (`.github/release-gate`) is `closed`**: pushing `main` runs CI
-  and releases nothing, so `main` is pushed as finished branches land; the owner opens the gate
-  when the first release is due (next bullet; `releasing.md`). Check
+- 🧭 **Git state (2026-10-08, night):** `main` is PUSHED and follows the `--no-ff` rule; the
+  first push with the workflows (`a75acda`) ran on GitHub: CI green (fmt, tests, smoke), auto-tag
+  green with the gate read as closed and the tag steps skipped, publish skipped, no tag, no
+  release. 🚦 **The release gate (`.github/release-gate`) is `closed`**: `main` is pushed as
+  finished branches land and releases nothing; the owner opens the gate when the first release
+  is due (next bullet; `releasing.md`). Check
   rather than trust this line: `git log --oneline --first-parent origin/main..main`,
   `git branch -r`, `git tag`. Several sessions commit here concurrently: re-read `git log`
   before merging into `main`.
