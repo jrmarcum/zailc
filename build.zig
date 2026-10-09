@@ -2,6 +2,7 @@
 const std = @import("std");
 const libpas_sources = @import("src/runtime/libpas_sources.zig");
 const musl_headers = @import("src/gen/musl_headers.zig");
+const yolomusl_sources = @import("src/runtime/yolomusl_sources.zig");
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
@@ -55,6 +56,94 @@ pub fn build(b: *std.Build) void {
     } else {
         libpas_step.dependOn(&b.addFail("zig build libpas needs -Dfilc-src=<path to a Fil-C v0.686 tree>").step);
     }
+
+    // `zig build yolomusl -Dfilc-src=<Fil-C tree>`: the runtime's own libc, Fil-C's patched musl
+    // (projects/yolomusl), as upstream's build_yolomusl.sh installs it: libyoloc.a, the crt objects
+    // (crt1.o, Scrt1.o, rcrt1.o, crti.o, crtn.o) and the empty libyolom.a. The file list and the
+    // flags are src/runtime/yolomusl_sources.zig (imported from the tree and musl's configure).
+    // libyoloc.so and ld-fil1 are not built yet (cmem/roadmap.md).
+    const yolomusl_step = b.step("yolomusl", "Build Fil-C's yolo musl from -Dfilc-src: libyoloc.a, crt1.o, Scrt1.o, rcrt1.o, crti.o, crtn.o, libyolom.a");
+    if (filc_src) |src| {
+        buildYoloMusl(b, yolomusl_step, gen, src);
+    } else {
+        yolomusl_step.dependOn(&b.addFail("zig build yolomusl needs -Dfilc-src=<path to a Fil-C v0.686 tree>").step);
+    }
+}
+
+/// Fil-C's yolo musl, compiled as its Makefile compiles it (yolomusl_sources.zig has the rules'
+/// result). Upstream's release built it with GCC 12.3; zailc uses Zig's clang with the flags musl's
+/// configure picks for clang (cmem/design-decisions.md).
+fn buildYoloMusl(b: *std.Build, step: *std.Build.Step, gen: *std.Build.Step.Compile, filc_src: []const u8) void {
+    const ys = yolomusl_sources;
+    const tree = b.pathJoin(&.{ filc_src, "projects", "yolomusl" });
+
+    // obj/include: musl's two generated headers (GENH), alone, as its build has them.
+    const genh = b.addRunArtifact(gen);
+    genh.addArgs(&.{ "musl-genh", tree });
+    const obj_include = genh.addOutputDirectoryArg("obj-include");
+    genh.addArg(ys.arch);
+    const genh_inputs = musl_headers.inputs(b.allocator, tree, ys.arch) catch |err| {
+        step.dependOn(&b.addFail(b.fmt("cannot list musl's headers in {s}: {s}", .{ tree, @errorName(err) })).step);
+        return;
+    };
+    for (genh_inputs) |in| if (in.use != .copy) genh.addFileInput(.{ .cwd_relative = b.pathJoin(&.{ tree, in.path }) });
+
+    // obj/src/internal/version.h (tools/version.sh: no .git in the subtree, so VERSION).
+    const version_dir = b.addWriteFiles();
+    _ = version_dir.add("version.h", b.fmt("#define VERSION \"{s}\"\n", .{ys.version}));
+
+    // CFLAGS_ALL's -I list, in the Makefile's order.
+    const includes = struct {
+        fn add(m: *std.Build.Module, bb: *std.Build, t: []const u8, oi: std.Build.LazyPath, vd: std.Build.LazyPath) void {
+            m.addIncludePath(.{ .cwd_relative = bb.pathJoin(&.{ t, "arch", ys.arch }) });
+            m.addIncludePath(.{ .cwd_relative = bb.pathJoin(&.{ t, "arch", "generic" }) });
+            m.addIncludePath(vd);
+            m.addIncludePath(.{ .cwd_relative = bb.pathJoin(&.{ t, "src", "include" }) });
+            m.addIncludePath(.{ .cwd_relative = bb.pathJoin(&.{ t, "src", "internal" }) });
+            m.addIncludePath(oi);
+            m.addIncludePath(.{ .cwd_relative = bb.pathJoin(&.{ t, "include" }) });
+        }
+    }.add;
+
+    // Upstream's make runs in projects/yolomusl and names sources relatively (W-6).
+    const prefix_map = b.fmt("-ffile-prefix-map={s}/=", .{tree});
+    const flagsFor = struct {
+        fn f(bb: *std.Build, s: ys.Src, crt: bool, map: []const u8) []const []const u8 {
+            var l: std.ArrayList([]const u8) = .empty;
+            l.appendSlice(bb.allocator, &ys.c99fse) catch @panic("OOM");
+            l.appendSlice(bb.allocator, &.{ "-D_XOPEN_SOURCE=700", "-g" }) catch @panic("OOM");
+            l.appendSlice(bb.allocator, &ys.auto) catch @panic("OOM");
+            if (s.o3) l.append(bb.allocator, "-O3") catch @panic("OOM");
+            if (s.memops) l.appendSlice(bb.allocator, &ys.memops_flags) catch @panic("OOM");
+            if (s.nossp) l.appendSlice(bb.allocator, &ys.nossp_flags) catch @panic("OOM");
+            if (crt) l.append(bb.allocator, "-DCRT") catch @panic("OOM");
+            if (s.pic) l.append(bb.allocator, "-fPIC") catch @panic("OOM");
+            l.append(bb.allocator, map) catch @panic("OOM");
+            return l.items;
+        }
+    }.f;
+
+    // libyoloc.a: every LIBC_OBJS member as its .lo (PIC) form, as upstream's archive holds them.
+    const libc_mod = runtimeModule(b, .baseline, true);
+    includes(libc_mod, b, tree, obj_include, version_dir.getDirectory());
+    const root: std.Build.LazyPath = .{ .cwd_relative = tree };
+    for (ys.libc) |s| libc_mod.addCSourceFile(.{ .file = root.path(b, s.path), .flags = flagsFor(b, s, false, prefix_map) });
+    const libc = b.addLibrary(.{ .name = "yoloc", .root_module = libc_mod, .linkage = .static });
+    step.dependOn(&b.addInstallArtifact(libc, .{}).step);
+
+    // The crt objects, one each, installed under their base names (crt/x86_64/crti.s -> crti.o).
+    for (ys.crt) |s| {
+        const m = runtimeModule(b, .baseline, s.pic);
+        includes(m, b, tree, obj_include, version_dir.getDirectory());
+        m.addCSourceFile(.{ .file = root.path(b, s.path), .flags = flagsFor(b, s, true, prefix_map) });
+        const stem = std.fs.path.stem(s.path);
+        const obj = b.addObject(.{ .name = stem, .root_module = m });
+        step.dependOn(&b.addInstallFile(obj.getEmittedBin(), b.fmt("lib/{s}.o", .{stem})).step);
+    }
+
+    // libyolom.a: upstream's `ar cr libyolom.a` with no members.
+    const empty = b.addWriteFiles();
+    step.dependOn(&b.addInstallFile(empty.add("libyolom.a", "!<arch>\n"), "lib/libyolom.a").step);
 }
 
 /// `.version` from build.zig.zon: exactly one line `    .version = "X.Y.Z",`, or the build fails.

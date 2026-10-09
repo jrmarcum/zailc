@@ -7,6 +7,8 @@
 //!                                                 by its basename
 //!   zailc-gen musl-headers <musl-src> <out-dir> [arch]
 //!                                                 musl's `make install-headers` (yolo-include)
+//!   zailc-gen musl-genh <musl-src> <out-dir> [arch]  only musl's generated bits/alltypes.h and
+//!                                                 bits/syscall.h (its build's obj/include)
 //!   zailc-gen --version                           zailc's version (build.zig.zon), the Zig that
 //!                                                 built it, and the Fil-C release its tables are from
 const std = @import("std");
@@ -21,6 +23,7 @@ const usage =
     \\       zailc-gen forwarders <out.c>
     \\       zailc-gen <path ending in filc_native.h or filc_native_forwarders.c>
     \\       zailc-gen musl-headers <musl-src> <out-dir> [arch=x86_64]
+    \\       zailc-gen musl-genh <musl-src> <out-dir> [arch=x86_64]
     \\       zailc-gen --version
     \\
 ;
@@ -46,6 +49,10 @@ pub fn main() !void {
     if (args.len >= 4 and std.mem.eql(u8, args[1], "musl-headers")) {
         const arch = if (args.len >= 5) args[4] else "x86_64";
         return musl_headers.install(gpa, args[2], args[3], arch);
+    }
+    if (args.len >= 4 and std.mem.eql(u8, args[1], "musl-genh")) {
+        const arch = if (args.len >= 5) args[4] else "x86_64";
+        return musl_headers.installGenerated(gpa, args[2], args[3], arch);
     }
     var kind: ?Kind = null;
     var path: []const u8 = "";
