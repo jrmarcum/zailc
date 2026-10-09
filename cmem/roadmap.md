@@ -19,10 +19,15 @@ same objects or same behaviour where code is compiled.
       global symbols (`tools/runtime/verify-libpas.ts`; one undefined-symbol difference, W-4).
       The quirks zilc found: `x86_64_v2` is the CPU model; `x86_64-linux-none` keeps Zig's musl
       headers out; `__cpu_indicator_init` is a LINK-time need (compiler-rt), next item.
-- [ ] **Link and run**: a Fil-C program linked from zailc's `libpizlo-stock.a` + the five
-      `fil-pizlo-*.o` (Fil-C-compiled; from the tarball's `libpizlo.a` until the item below) +
-      the tarball's `libyoloc`, `libyolort`, crt files runs and traps out-of-bounds (exit 133,
-      `filc safety error`); then zilc's corpus against it.
+- [x] **Link and run, C and C++** (2026-10-08): `tools/runtime/link-run.ts` links each program
+      in `tests/link/` statically twice with the driver's own link line, against upstream's runtime
+      and against ours (our 178 libpas objects + the tarball's five `fil-pizlo-*.o`, our
+      `filc_crt.o` and `libyolounwind.a`; the tarball's libc, `libyolort` and crt files as
+      scaffolding). 9 programs, 10 variants, all identical to stock: startup, stdio, heap and
+      stack out-of-bounds and use-after-free traps (exit 133), allocator stress, GC, threads,
+      signals, setjmp, C++ exceptions. Found and fixed on the way: the runtime's `__FILE__`
+      paths (W-6). Found in upstream: a C++ exception panic at -O1 (W-7).
+- [ ] **zilc's corpus against our runtime**: zilc's Zig programs, linked the same two ways.
 - [ ] **yolo musl's libraries through `build.zig`**: `libyoloc.a`/`.so`, `crt1.o`, `crti.o`,
       `crtn.o`, `Scrt1.o`, `rcrt1.o`, `ld-fil1-x86_64.so`; 1,515 C + 283 asm files with musl's
       arch-override rule, the per-file flag classes (`-fPIE` objects, `-fPIC` `.lo`, CRT, NOSSP,
@@ -31,8 +36,9 @@ same objects or same behaviour where code is compiled.
 - [ ] **compiler-rt builtins** (`libyolort.a`, `crtbegin.o`, `crtend.o`) through `build.zig`, or
       Zig's own compiler_rt plus `cpu_model/x86.c`; decide by what `__cpu_indicator_init` needs.
 - [ ] **The three Fil-C-compiled pieces** (`filc/src` ~2.5k lines, user libc ~102k, libc++ /
-      libc++abi): through Fil-C's clang inside `zig build` as the interim (open row in
-      `design-decisions.md`).
+      libc++abi): through Fil-C's clang inside `zig build` as a development bridge only; they
+      ship compiled by zailc's own pass (step 3). Nothing upstream-built ships (owner, 2026-10-08,
+      `design-decisions.md` 🎯).
 - [ ] **A Fil-C program linked entirely from `zig build`'s outputs** runs, traps out-of-bounds,
       and zilc's corpus passes against it as it does against the prebuilt runtime.
 - [ ] **Fil-C's own test suite** against the `zig build` runtime (zilc's `run-filc-tests.ts`).
