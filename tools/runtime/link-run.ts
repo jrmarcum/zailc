@@ -25,7 +25,7 @@
 //
 //   deno run -A tools/runtime/link-run.ts [name ...]     (from Windows or Linux; runs in WSL)
 
-import { REPO, WORK, filcPrebuilt, linuxOnly, mkdirp, must, requireFilcSrc, rmrf, run, zig, zigCacheArgs } from "../lib/tool.ts";
+import { REPO, WORK, filcPrebuilt, linuxOnly, mkdirp, must, requireFilcSrc, rmrf, run, sha256, zig, zigCacheArgs } from "../lib/tool.ts";
 
 await linuxOnly(import.meta);
 
@@ -50,7 +50,8 @@ const parts = `${base}/parts`;
 await mkdirp(parts);
 await mkdirp(overlay);
 await must(["ar", "x", `${out}/lib/libpizlo-stock.a`], { cwd: parts });
-const oursCount = [...Deno.readDirSync(parts)].filter((e) => e.name.endsWith(".o")).length;
+const ourObjects = new Set([...Deno.readDirSync(parts)].map((e) => e.name).filter((n) => n.endsWith(".o")));
+const oursCount = ourObjects.size;
 const filMembers = (await must(["ar", "t", `${pizfixLib}/libpizlo.a`])).split("\n").filter((m) => m.startsWith("fil-pizlo-"));
 if (oursCount !== 178 || filMembers.length !== 5) {
   console.log(`FAILED: expected 178 of our objects and 5 fil-pizlo members, got ${oursCount} and ${filMembers.length}`);
@@ -60,6 +61,14 @@ await must(["ar", "x", `${pizfixLib}/libpizlo.a`, ...filMembers], { cwd: parts }
 const members = [...Deno.readDirSync(parts)].map((e) => e.name).filter((n) => n.endsWith(".o")).sort();
 await must(["ar", "rcs", `${overlay}/libpizlo.a`, ...members], { cwd: parts });
 await Deno.copyFile(`${out}/lib/libyolounwind.a`, `${overlay}/libyolounwind.a`);
+// Its member is `yolounwind.o` in both archives, so names cannot tell them apart: bytes can.
+{
+  const [ov, mine, up] = await Promise.all([`${overlay}/libyolounwind.a`, `${out}/lib/libyolounwind.a`, `${pizfixLib}/libyolounwind.a`].map(async (p) => sha256(await Deno.readFile(p))));
+  if (ov !== mine || ov === up) {
+    console.log(`FAILED: the overlay's libyolounwind.a is not ours (overlay ${ov.slice(0, 12)}, ours ${mine.slice(0, 12)}, upstream ${up.slice(0, 12)})`);
+    Deno.exit(1);
+  }
+}
 const ourCrt = `${out}/lib/filc_crt.o`;
 console.log(`overlay: libpizlo.a = ${oursCount} ours + ${filMembers.length} fil-pizlo (upstream's); libyolounwind.a and filc_crt.o ours`);
 
@@ -134,7 +143,13 @@ for (const { file, name, flags, expect } of variants) {
   const leaked = upstreamPieces.filter((p) => om.includes(p));
   const oursMembers = new Set([...om.matchAll(new RegExp(`${overlay.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/libpizlo\\.a\\(([^)]+)\\)`, "g"))].map((x) => x[1]));
   const stockMembers = new Set([...sm.matchAll(/\/pizfix\/lib\/libpizlo\.a\(([^)]+)\)/g)].map((x) => x[1]));
-  const usedOurs = oursMembers.size > 0 && om.includes(ourCrt);
+  // The overlay's PATH is not proof of its CONTENT: every member pulled from it must be one of
+  // our objects or one of the five fil-pizlo ones (an overlay holding upstream's archive passed
+  // a path-only check; the M1 mutant, 2026-10-08).
+  const foreign = [...oursMembers].filter((x) => !ourObjects.has(x) && !filMembers.includes(x));
+  const pulledOurs = [...oursMembers].filter((x) => ourObjects.has(x)).length;
+  if (foreign.length) console.log(`  ${name}: overlay members that are not ours: ${foreign.slice(0, 5).join(" ")}${foreign.length > 5 ? " ..." : ""}`);
+  const usedOurs = pulledOurs > 0 && foreign.length === 0 && om.includes(ourCrt);
   const stockUsedUpstream = stockMembers.size > 0 && sm.includes("/pizfix/lib/filc_crt.o");
   if (leaked.length || !usedOurs || !stockUsedUpstream) {
     console.log(`FAIL ${name}: wrong runtime linked (ours leaked ${leaked.join(" ") || "nothing"}, ours used overlay+crt ${usedOurs}, stock used upstream ${stockUsedUpstream})`);
