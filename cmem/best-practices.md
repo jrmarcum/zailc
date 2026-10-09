@@ -209,7 +209,15 @@ Selected 2026-10-08 (owner: "copy in the ones that are relevant to our specific 
 ## 7. Git
 
 - **Branch, commit, then `git merge --no-ff` to `main`**, docs-only changes included (binaryang:
-  two direct commits to `main` led the owner to have the history rewritten).
+  two direct commits to `main` led the owner to have the history rewritten). Confirmed for zailc
+  by the owner, 2026-10-08: a push of `main` is also a release (`auto-tag.yml`), as in binaryang
+  ([releasing.md](releasing.md)).
+- **When another session shares the working tree, never switch branches in it and never commit a
+  file whole if it holds their hunks.** Build the commit in a temporary index (`GIT_INDEX_FILE`,
+  `read-tree HEAD`, `hash-object -w` + `update-index --cacheinfo` with only your hunks,
+  `commit-tree`), create the merge with `commit-tree -p main -p <branch>`, move `main` with
+  `update-ref` (giving the old value), then `git reset -q -- <your paths>`. Their edits stay
+  uncommitted and untouched (zailc, 2026-10-08, commit `15ab768`).
 - **Commit messages go through a file** (`git commit -F <file>`) written with the file tools, never
   a heredoc or a double-quoted `-m`. Every message ends with the session's attribution line.
 - **Prefer a new commit over `--amend`.** **Nothing is pushed unless the owner says so.**
