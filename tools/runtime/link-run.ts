@@ -3,7 +3,8 @@
 // Step 2, "link and run": Fil-C programs linked against the runtime `zig build libpas` produces
 // must behave exactly as the same programs linked against upstream's.
 //
-// For every program in tests/link/ (C or C++, with an `// expect: exit N` line):
+// For every program in tests/link/ (C or C++), and every `// expect: exit N [with <flags>]` line
+// in it (one variant each; flags default to -O1):
 //   1. compile it once with Fil-C's clang (the interim compiler until the pass is in Zig);
 //   2. take the static link line Fil-C's driver would run (`-static -###`), and run it twice:
 //        stock: unchanged, against the release tarball's runtime;
@@ -90,17 +91,25 @@ function normalise(s: string): string {
 
 let pass = 0, fail = 0;
 const runEnv = ["env", "-i", "PATH=/usr/bin:/bin", "timeout", TIMEOUT];
+// Each `// expect: exit N [with <flags>]` line is one variant of the program (default flags -O1).
+const variants: { file: string; name: string; flags: string[]; expect: number }[] = [];
 for (const file of tests) {
-  const name = file.replace(/\.(c|cpp)$/, "");
   const text = await Deno.readTextFile(`${REPO}/tests/link/${file}`);
-  const m = text.match(/^\/\/ expect: exit (\d+)$/m);
-  if (!m) throw new Error(`${file}: no "// expect: exit N" line`);
-  const expect = Number(m[1]);
+  const lines = [...text.matchAll(/^\/\/ expect: exit (\d+)(?: with (.+))?$/gm)];
+  if (!lines.length) throw new Error(`${file}: no "// expect: exit N" line`);
+  for (const m of lines) {
+    const flags = m[2] ? m[2].trim().split(/\s+/) : ["-O1"];
+    const stem = file.replace(/\.(c|cpp)$/, "");
+    variants.push({ file, name: lines.length > 1 ? `${stem}${flags.join("")}` : stem, flags, expect: Number(m[1]) });
+  }
+}
+
+for (const { file, name, flags, expect } of variants) {
   const cc = `${prebuilt}/build/bin/${file.endsWith(".cpp") ? "clang++" : "clang"}`;
   const dir = `${base}/${name}`;
   await mkdirp(dir);
   const obj = `${dir}/${name}.o`;
-  await must([cc, "-O1", "-g", "-c", `${REPO}/tests/link/${file}`, "-o", obj]);
+  await must([cc, ...flags, "-g", "-c", `${REPO}/tests/link/${file}`, "-o", obj]);
 
   const dry = await must([cc, "-static", obj, "-o", `${dir}/stock`, "-###"]);
   const stock = parseCommand(dry.trim().split("\n").at(-1)!);
@@ -161,5 +170,5 @@ for (const file of tests) {
   }
 }
 
-console.log(`\n${tests.length} programs: ${pass} identical to stock, ${fail} failed`);
-Deno.exit(fail === 0 && tests.length > 0 ? 0 : 1);
+console.log(`\n${tests.length} programs, ${variants.length} variants: ${pass} identical to stock, ${fail} failed`);
+Deno.exit(fail === 0 && pass === variants.length && variants.length > 0 ? 0 : 1);

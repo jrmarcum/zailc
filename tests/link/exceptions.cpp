@@ -1,7 +1,11 @@
-// expect: exit 0
+// expect: exit 0 with -O0
+// expect: exit 133 with -O1
 // C++ exceptions through Fil-C's unwinder (pizlonated_eh_landing_pad, gcc_personality, unwind,
 // libyolounwind): throw across frames, catch by type, rethrow, destructors run during unwinding;
 // plus libc++ containers and strings.
+// At -O1 (and -O2) Fil-C 0.686 itself panics in landing_pad_impl (`function_origin->can_catch`),
+// static or dynamic, with upstream's own runtime: cmem/workarounds.md W-7. The -O1 variant pins
+// that behaviour, including the panic text, which names src/libpas/filc_runtime.c (W-6).
 #include <cstdio>
 #include <map>
 #include <stdexcept>
