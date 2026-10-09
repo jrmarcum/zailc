@@ -24,5 +24,5 @@
 
 | Raised | Question | Current lean |
 | --- | --- | --- |
-| 2026-10-08 | **Remote.** `github.com/jrmarcum/zailc` (the name is decided, row above); nothing pushed yet | Owner publishes when ready, as with zilc |
+| 2026-10-08 | **Remote.** `github.com/jrmarcum/zailc` exists; its `main` is the `First publish` commit, local `main` is ahead (unpushed), branch `step2/stock-runtime` pushed | The next push of `main` is the `v0.1.0` release (`releasing.md`): the owner's decision |
 | 2026-10-08 | **Interim for the three Fil-C-compiled pieces of step 2** (`filc/src` part of libpizlo, user libc, libc++/libc++abi): Fil-C's clang inside `zig build`, or ship them precompiled as data? | Fil-C's clang inside `zig build` first (it keeps everything built from source and checkable against zilc); precompiled data only if the owner wants a no-Fil-C install before step 3 lands |
