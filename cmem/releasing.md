@@ -18,19 +18,24 @@ release like binaryang does. That is how I would like this repository setup also
 it and runs `publish.yml`. That is why `main` only ever receives `--no-ff` merges from branches,
 and why the version bump is a separate, deliberate commit.
 
+**🚦 Behind a release gate (owner, 2026-10-08: "I would prefer the guard so we keep main up to date with finished branches and releases when they are ready").** `.github/release-gate` reads
+`closed` until the first release is due: Fil-C fully converted to Zig and verified against zilc's
+setups, so the user installs Zig and only Zig (`design-decisions.md` 🎯). While it is closed,
+**`main` is pushed as usual** and takes every finished branch; CI runs on it; auto-tag stops with
+a notice and releases nothing; `publish.yml` refuses even a hand-pushed `v*` tag. **Opening the
+gate is the owner's decision**, made as its own commit (`closed` → `open`) on a branch, merged
+with `--no-ff`. Once it is open, everything below applies unchanged.
+
 **Current state (2026-10-08, late evening):** version `0.1.0` in `build.zig.zon`; nothing
 released, no tag. The remote `github.com/jrmarcum/zailc` exists; its `main` is still the
 `First publish` commit (`8a73338`, pushed BEFORE the workflows existed, so nothing ran). Local
 `main` is ahead and unpushed, by `--no-ff` merges only (`git log --oneline --first-parent
 origin/main..main`): the release rules, the CI/release workflows, step 2 (the stock half of the
 runtime), the day-one state and the day-one review fixes. The branches `step2/stock-runtime` and
-`docs/state-2026-10-08` are on the remote (a branch push triggers nothing). ⚠️ **The NEXT push of `main` releases `v0.1.0`** and is the first time the
-workflows run on GitHub, because no tag exists yet. 🛑 **Owner, 2026-10-08: the first release
-comes only after Fil-C is fully converted to Zig and verified against zilc's setups, and the user
-installs Zig and only Zig** (`design-decisions.md` 🎯). So **`main` is not pushed until then**;
-push branches only. Whether to add a guard to `auto-tag.yml` so `main` can be pushed earlier is
-an open question in `design-decisions.md`. Several sessions commit to this repo
-concurrently: re-read `git log` before merging into `main`.
+`docs/state-2026-10-08` are on the remote (a branch push triggers nothing). **The release gate is
+`closed`**, so the next push of `main` runs CI and auto-tag for the first time on GitHub and
+releases nothing; it is safe to push `main` (the owner's call when). Several sessions commit to
+this repo concurrently: re-read `git log` before merging into `main`.
 
 ## The version scheme
 
@@ -73,6 +78,7 @@ concurrently: re-read `git log` before merging into `main`.
 2. gates on main, in WSL                # testing.md; all must pass; then push main if wanted:
                                         # CI runs, auto-tag finds the tag exists, nothing ships
 3. unreleased.md says PATCH or MINOR; the owner decides to ship
+   (the first release only: the owner also opens .github/release-gate, closed -> open)
 4. deno run -A tools/release/bump.ts [patch|minor]   # edits build.zig.zon only
 5. move unreleased.md's entries into CHANGELOG.md § X.Y.Z
 6. commit 4+5 on a branch, merge --no-ff -> main     # the arming commit, on its own
@@ -112,8 +118,8 @@ belong to the next minor:
 | workflow | trigger | does |
 | --- | --- | --- |
 | `ci.yml` | push to `main`, PRs | Zig 0.15.2; `zig fmt --check`; `zig build test` (SHA-256 against Ruby's output); smoke: `zailc-gen header` must hash to Ruby's header |
-| `auto-tag.yml` | push to `main` | reads `.version` (fails if the line is missing or doubled); if `v<version>` has no tag, pushes the annotated tag and **calls `publish.yml`** |
-| `publish.yml` | `push: tags: [v*]`, or `workflow_call` from auto-tag | checks the tag matches `build.zig.zon`, runs the gates, builds `zailc-gen` (`ReleaseSafe`, `x86_64-linux-musl`), smoke-tests the binary FROM THE ARCHIVE, attests build provenance, creates the GitHub Release with the archives and `SHA256SUMS`; notes from `CHANGELOG.md` § X.Y.Z, else generated |
+| `auto-tag.yml` | push to `main` | reads the release gate first (`tools/release/gate.ts`): **closed = a notice, green, nothing else**; open: reads `.version` (fails if the line is missing or doubled); if `v<version>` has no tag, pushes the annotated tag and **calls `publish.yml`** |
+| `publish.yml` | `push: tags: [v*]`, or `workflow_call` from auto-tag | **refuses unless the release gate is open at the tagged commit** (before any build or upload); checks the tag matches `build.zig.zon`, runs the gates, builds `zailc-gen` (`ReleaseSafe`, `x86_64-linux-musl`), smoke-tests the binary FROM THE ARCHIVE, attests build provenance, creates the GitHub Release with the archives and `SHA256SUMS`; notes from `CHANGELOG.md` § X.Y.Z, else generated |
 
 - **Release binaries are built by `publish.yml` only, never locally and uploaded by hand.** This is
   binaryang's "never run `deno publish` locally": a hand-uploaded binary carries no attestation,

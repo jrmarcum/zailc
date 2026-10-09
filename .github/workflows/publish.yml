@@ -1,7 +1,8 @@
 # Publish a release: a GitHub Release with CI-built binaries and build-provenance attestations.
 #
 # Runs on a `v*` tag push (a tag pushed by hand, e.g. a patch from a release branch) or when
-# called by auto-tag.yml after it creates the tag for a version bump on main.
+# called by auto-tag.yml after it creates the tag for a version bump on main. Either way it first
+# requires the release gate (`.github/release-gate`) to be open at the tagged commit.
 #
 # Release binaries are built HERE and only here, never locally (cmem/releasing.md). A binary
 # uploaded by hand carries no attestation, and that cannot be fixed on that version.
@@ -40,6 +41,23 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: refs/tags/${{ inputs.tag || github.ref_name }}
+
+      - name: Install Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      # The gate as of the TAGGED commit. auto-tag only calls this with the gate open; this step
+      # stops a hand-pushed v* tag from releasing while the gate is closed. Nothing has been
+      # built or uploaded yet when it fails.
+      - name: The release gate must be open
+        run: |
+          STATE="$(deno run --allow-read tools/release/gate.ts)"
+          if [ "$STATE" != open ]; then
+            echo "::error::The release gate is $STATE at $TAG (.github/release-gate): no release. Delete the tag (git push origin :refs/tags/$TAG) or open the gate first (owner's decision)."
+            exit 1
+          fi
+          echo "Release gate is open."
 
       - name: Install Zig 0.15.2
         uses: mlugg/setup-zig@v2

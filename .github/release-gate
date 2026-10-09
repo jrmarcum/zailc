@@ -1,0 +1,10 @@
+# zailc's release gate: `closed` or `open` (the first line that is not a comment or blank).
+#
+# closed: a push of main runs CI and NOTHING is released. auto-tag.yml tags nothing, and
+#         publish.yml refuses even a hand-pushed v* tag.
+# open:   a push of main whose build.zig.zon version has no tag releases it (cmem/releasing.md).
+#
+# Closed until Fil-C is fully converted to Zig and verified against zilc's setups, so the user
+# installs Zig and only Zig (owner, 2026-10-08; cmem/design-decisions.md). Opening it is the
+# owner's decision, made as its own commit, merged with --no-ff like everything else.
+closed

@@ -1,10 +1,14 @@
-# Auto-release when `build.zig.zon`'s version has no tag yet (cmem/releasing.md).
+# Auto-release when the release gate is open and `build.zig.zon`'s version has no tag yet
+# (cmem/releasing.md).
 #
-# On every push to main: read `.version` from build.zig.zon; if `v<version>` does not exist,
-# create and push the annotated tag, then run publish.yml on it as a REUSABLE workflow.
+# On every push to main: read the release gate (`.github/release-gate`, through
+# tools/release/gate.ts). CLOSED: stop, release nothing, stay green, so main can take finished
+# branches long before the first release. OPEN: read `.version` from build.zig.zon; if
+# `v<version>` does not exist, create and push the annotated tag, then run publish.yml on it as a
+# REUSABLE workflow.
 #
-# So a push to main whose version is new IS a release. That is why the version line arms a
-# release, and why a merge must never carry a bump (cmem/releasing.md § RULE).
+# With the gate open, a push to main whose version is new IS a release. That is why the version
+# line arms a release, and why a merge must never carry a bump (cmem/releasing.md § RULE).
 #
 # Why `workflow_call` and not binaryang's `gh workflow run` dispatch: GitHub does not fire
 # workflows for a tag pushed with GITHUB_TOKEN (its recursion guard), and binaryang's dispatch
@@ -38,10 +42,28 @@ jobs:
         with:
           fetch-depth: 0 # full history and tags, so the tag lookup sees every tag
 
+      - name: Install Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      # A malformed gate file fails the run (gate.ts exits 1); it never reads as open.
+      - name: Read the release gate
+        id: gate
+        run: |
+          STATE="$(deno run --allow-read tools/release/gate.ts)"
+          echo "state=$STATE" >> "$GITHUB_OUTPUT"
+          if [ "$STATE" = closed ]; then
+            echo "::notice::Release gate is closed (.github/release-gate): main is up to date, nothing is released."
+          else
+            echo "Release gate is open."
+          fi
+
       # Fails loudly if the line is missing or appears more than once. A silent empty version
       # would read as "tag v does not exist" and try to release it.
       - name: Read version from build.zig.zon
         id: ver
+        if: steps.gate.outputs.state == 'open'
         run: |
           V="$(sed -n 's/^    \.version = "\([^"]*\)",$/\1/p' build.zig.zon)"
           if [ "$(printf '%s\n' "$V" | grep -c .)" != 1 ]; then
@@ -53,6 +75,7 @@ jobs:
 
       - name: Create and push the tag if new
         id: check
+        if: steps.gate.outputs.state == 'open'
         run: |
           TAG="${{ steps.ver.outputs.tag }}"
           if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then

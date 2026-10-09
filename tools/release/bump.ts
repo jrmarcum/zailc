@@ -5,12 +5,14 @@
 //
 //   deno run -A tools/release/bump.ts [patch|minor|major] [--dry-run]
 //
-// PATCH is the default; MINOR is for any break, behavioural ones included. The bump ARMS a
-// release: pushing it to main makes auto-tag.yml tag and publish it. So it is its own commit,
+// PATCH is the default; MINOR is for any break, behavioural ones included. With the release gate
+// open (.github/release-gate), the bump ARMS a release: pushing it to main makes auto-tag.yml tag
+// and publish it. So it is its own commit,
 // made on the owner's go, and never part of a merge. This tool only edits the file. It doesn't
 // commit, tag or push.
 
 import { REPO } from "../lib/tool.ts";
+import { releaseGate } from "./gate.ts";
 
 const args = Deno.args.filter((a) => a !== "--dry-run");
 const dryRun = Deno.args.includes("--dry-run");
@@ -50,4 +52,9 @@ if (!check.includes(`    .version = "${next}",`) || check.includes(`    .version
   console.error(`read-back failed: build.zig.zon does not hold ${next}`);
   Deno.exit(1);
 }
-console.log(`${old} -> ${next} (${kind}). Commit this alone; pushing it to main releases v${next}.`);
+const gate = await releaseGate();
+console.log(
+  gate === "open"
+    ? `${old} -> ${next} (${kind}). Commit this alone; pushing it to main releases v${next}.`
+    : `${old} -> ${next} (${kind}). The release gate is CLOSED (.github/release-gate): pushing it to main releases nothing until the owner opens the gate.`,
+);

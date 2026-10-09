@@ -1,10 +1,9 @@
 # Unreleased on `main` — what the next release note must say
 
 **As of 2026-10-08 (late evening): nothing has been released.** `build.zig.zon` reads `0.1.0`,
-there is no tag, and the remote's `main` is still the `First publish` commit (local `main` is
-ahead and unpushed; `git branch -r` lists what is on the remote). The first release will be
-`v0.1.0`, and only after Fil-C is fully converted to Zig and verified against zilc's setups (owner,
-2026-10-08); the next push of `main` would make it, so `main` is not pushed until then. Rules:
+there is no tag, and the release gate (`.github/release-gate`) is `closed`, so pushing `main`
+releases nothing. The first release will be `v0.1.0`, and only after Fil-C is fully converted to
+Zig and verified against zilc's setups (owner, 2026-10-08), when the owner opens the gate. Rules:
 [releasing.md](releasing.md).
 
 ## How to use this file
