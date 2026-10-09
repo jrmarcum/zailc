@@ -95,7 +95,11 @@ fn buildStockRuntime(b: *std.Build, step: *std.Build.Step, gen: *std.Build.Step.
     const v2: std.Target.Query.CpuModel = .{ .explicit = &std.Target.x86.cpu.x86_64_v2 }; // -march=x86-64-v2
     const mod = runtimeModule(b, v2, true);
     const pascc = [_][]const u8{ "-pthread", "-nostdinc", "-g", "-O3", "-W", "-Werror", "-fno-strict-aliasing" };
-    const cflags = &(pascc ++ [_][]const u8{"-DPAS_FILC=1"});
+    // Upstream runs make in libpas/ and names sources `src/libpas/x.c`, so `__FILE__` (in every
+    // PAS_ASSERT and panic message) reads `src/libpas/x.c`. Zig passes absolute paths; map them
+    // back so the runtime's messages are upstream's (cmem/workarounds.md W-6).
+    const libpas_map = b.fmt("-ffile-prefix-map={s}/=", .{libpas_dir});
+    const cflags = b.allocator.dupe([]const u8, &(pascc ++ [_][]const u8{ "-DPAS_FILC=1", libpas_map })) catch @panic("OOM");
     const addPasccIncludes = struct {
         fn f(m: *std.Build.Module, bb: *std.Build, yolo: std.Build.LazyPath, piz: []const u8) void {
             m.addSystemIncludePath(yolo);
@@ -129,7 +133,9 @@ fn buildStockRuntime(b: *std.Build, step: *std.Build.Step, gen: *std.Build.Step.
     }) |crt| {
         const m = runtimeModule(b, v2, true);
         addPasccIncludes(m, b, yolo_include, pizfix);
-        m.addCSourceFile(.{ .file = .{ .cwd_relative = main_c }, .flags = &(pascc ++ [_][]const u8{crt.def}) });
+        // Upstream compiles it from libpas/ as `../filc/main/main.c`.
+        const crt_map = b.fmt("-ffile-prefix-map={s}/=../", .{filc_src});
+        m.addCSourceFile(.{ .file = .{ .cwd_relative = main_c }, .flags = b.allocator.dupe([]const u8, &(pascc ++ [_][]const u8{ crt.def, crt_map })) catch @panic("OOM") });
         const obj = b.addObject(.{ .name = crt.name, .root_module = m });
         step.dependOn(&b.addInstallFile(obj.getEmittedBin(), b.fmt("lib/{s}.o", .{crt.name})).step);
     }
@@ -137,7 +143,9 @@ fn buildStockRuntime(b: *std.Build, step: *std.Build.Step, gen: *std.Build.Step.
     // libyolounwind.a: `clang -c yolounwind.c -O2 -g` with the host's defaults (baseline x86-64,
     // no -fPIC), then `ar cr`. Six trap stubs; the file includes nothing.
     const unwind = runtimeModule(b, .baseline, false);
-    unwind.addCSourceFile(.{ .file = .{ .cwd_relative = b.pathJoin(&.{ filc_src, "yolounwind", "yolounwind.c" }) }, .flags = &.{ "-O2", "-g" } });
+    // Upstream compiles it from yolounwind/ as `yolounwind.c`.
+    const unwind_map = b.fmt("-ffile-prefix-map={s}/=", .{b.pathJoin(&.{ filc_src, "yolounwind" })});
+    unwind.addCSourceFile(.{ .file = .{ .cwd_relative = b.pathJoin(&.{ filc_src, "yolounwind", "yolounwind.c" }) }, .flags = b.allocator.dupe([]const u8, &.{ "-O2", "-g", unwind_map }) catch @panic("OOM") });
     const unwind_lib = b.addLibrary(.{ .name = "yolounwind", .root_module = unwind, .linkage = .static });
     step.dependOn(&b.addInstallArtifact(unwind_lib, .{}).step);
 }
