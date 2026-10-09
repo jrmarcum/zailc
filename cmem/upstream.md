@@ -14,9 +14,8 @@
   2. Re-run the importers: `tools/gen/import-signatures.ts` (`src/gen/signatures.zig`) and
      `tools/runtime/import-libpas-sources.ts` (`src/runtime/libpas_sources.zig`, from
      `common.mk`). Review both diffs: they are upstream's changes.
-  3. Clear `~/zailc-work/zig-cache`. The `musl-headers` step is keyed on its arguments, not
-     on the musl tree, so it would reuse the old `yolo-include` (`workarounds.md` W-5), unless
-     W-5's exit has been done.
+  3. (No cache clear needed since 2026-10-09: the `musl-headers` step declares the musl tree's
+     files as inputs, so a new tree reruns it; `workarounds.md` W-5.)
   4. Re-measure the reference hashes in `oracle.md` and `src/gen/forwarders.zig` (a re-baseline
      is its own commit), then run every oracle gate: `tools/gen/verify-forwarders.ts`,
      `tools/gen/verify-musl-headers.ts`, `tools/runtime/verify-libpas.ts`.
