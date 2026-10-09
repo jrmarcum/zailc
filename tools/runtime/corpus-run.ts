@@ -21,7 +21,9 @@
 // differ by themselves, so ours is compared by shape: same lines once digits are masked, the way
 // zilc's compare-output.ts does it, and the same exit code when both stock runs had one);
 // DIFFERS / SHAPE-DIFFERS; BUILD-FAIL / LINK-FAIL (no comparison happened: counted as failures).
-// Exit 0 only when every program is SAME or VARIES-SAME-SHAPE.
+// SAME-LINES-ANY-ORDER (a THREAD_ORDER program: the same digit-masked lines, any order, same
+// exit) / LINES-DIFFER. Exit 0 only when every program is SAME, VARIES-SAME-SHAPE or
+// SAME-LINES-ANY-ORDER.
 //
 //   deno run -A tools/runtime/corpus-run.ts ["c zig"] [name ...]     (runs in WSL)
 //   env: MODE (default ReleaseSafe), JOBS (default 8), TBUILD (s, default 1800),
@@ -84,6 +86,17 @@ async function exec(b: string, bin: string): Promise<{ code: number; out: string
 }
 const shape = (s: string) => s.split("\n").map((l) => l.replace(/[0-9+]+/g, "#"));
 
+// Programs whose output ORDER is decided by thread scheduling: their lines, and which worker takes
+// which job, change between runs of the same binary, so two stock runs can agree by chance and
+// still differ from a third. Compared by exit code and the same digit-masked lines in any order.
+// Kept short, each with its evidence (zilc's compare-output.ts EXPECTED has 27 and 36).
+const THREAD_ORDER: Record<string, string> = {
+  "27_goroutines": "two threads race to print (zilc: the same order twice natively only by chance)",
+  "35_waitgroups": "workers finish in scheduling order (varied by itself in zailc's first corpus run, both languages)",
+  "36_worker-pools": "which worker takes which job is scheduling (zilc EXPECTED; varied by itself in zailc's first run)",
+};
+const anyOrder = (s: string) => JSON.stringify(shape(s).sort());
+
 async function one(w: Work): Promise<string> {
   const id = `${w.lang} ${w.name}`;
   const b = `${base}/bin/${w.lang}/${w.name}`;
@@ -117,7 +130,11 @@ async function one(w: Work): Promise<string> {
   const o = await exec(b, linked.ours);
   await Deno.writeTextFile(`${b}/stock.out`, s1.out);
   await Deno.writeTextFile(`${b}/ours.out`, o.out);
-  const how = `exit ${o.code}, ${objects.length} object(s), ${linked.members} libpizlo members`;
+  const how = `exit ${o.code}, ${objects.length} object(s), ${linked.members} libpizlo + ${linked.yolocMembers} libyoloc members`;
+  if (Object.hasOwn(THREAD_ORDER, w.name)) {
+    const ok = o.code === s1.code && s1.code === s2.code && anyOrder(o.out) === anyOrder(s1.out);
+    return ok ? `${id} SAME-LINES-ANY-ORDER (${how}; ${THREAD_ORDER[w.name]})` : `${id} LINES-DIFFER exit ours ${o.code} stock ${s1.code}/${s2.code}`;
+  }
   if (s1.code === s2.code && s1.out === s2.out) {
     if (o.code === s1.code && o.out === s1.out) return `${id} SAME (${how})`;
     const a = s1.out.split("\n"), c = o.out.split("\n");
@@ -147,9 +164,9 @@ let bad = 0;
 for (const lang of langs) {
   const mine = results.filter((l) => l.startsWith(`${lang} `));
   const count = (v: string) => mine.filter((l) => l.split(" ")[2] === v).length;
-  const ok = count("SAME") + count("VARIES-SAME-SHAPE");
+  const ok = count("SAME") + count("VARIES-SAME-SHAPE") + count("SAME-LINES-ANY-ORDER");
   bad += mine.length - ok;
-  console.log(`== ${lang} [${mode}]: ${mine.length} programs: ${count("SAME")} SAME, ${count("VARIES-SAME-SHAPE")} VARIES-SAME-SHAPE, ${count("DIFFERS")} DIFFERS, ${count("SHAPE-DIFFERS")} SHAPE-DIFFERS, ${count("BUILD-FAIL")} BUILD-FAIL, ${count("LINK-FAIL")} LINK-FAIL`);
+  console.log(`== ${lang} [${mode}]: ${mine.length} programs: ${count("SAME")} SAME, ${count("VARIES-SAME-SHAPE")} VARIES-SAME-SHAPE, ${count("SAME-LINES-ANY-ORDER")} SAME-LINES-ANY-ORDER, ${count("LINES-DIFFER")} LINES-DIFFER, ${count("DIFFERS")} DIFFERS, ${count("SHAPE-DIFFERS")} SHAPE-DIFFERS, ${count("BUILD-FAIL")} BUILD-FAIL, ${count("LINK-FAIL")} LINK-FAIL`);
 }
 console.log(`results: ${base}/results.txt`);
 Deno.exit(bad === 0 && results.length > 0 ? 0 : 1);

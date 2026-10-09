@@ -11,6 +11,7 @@
 //   deno run -A tools/runtime/verify-libpas.ts        (from Windows or Linux; runs in WSL)
 
 import { REPO, WORK, existsSync, filcPrebuilt, linuxOnly, mkdirp, must, requireFilcSrc, rmrf, run, zig, zigCacheArgs } from "../lib/tool.ts";
+import { diff, sourcePaths, symbols } from "./lib/objects.ts";
 
 await linuxOnly(import.meta);
 
@@ -35,38 +36,12 @@ await mkdirp(theirs);
 await must(["ar", "x", `${prefix}/lib/libpizlo-stock.a`], { cwd: ours });
 await must(["ar", "x", `${prebuilt}/pizfix/lib/libpizlo.a`], { cwd: theirs });
 
-async function symbols(obj: string, flags: string[]): Promise<Set<string>> {
-  const out = await must(["nm", "-P", ...flags, obj]);
-  return new Set(out.split("\n").filter((l) => l.trim()).map((l) => l.split(" ")[0]));
-}
-const diff = (a: Set<string>, b: Set<string>) => [...a].filter((x) => !b.has(x)).sort();
-
 // The source paths an object carries in its read-only data (`__FILE__` in PAS_ASSERT and panic
 // messages). They are printed at run time, so their FORM must be upstream's (`src/libpas/x.c`,
 // never an absolute path; W-6): every path in ours must be one upstream's objects carry. WHICH
 // asserts survive -O3 differs between the two clangs (the W-4 class), so per-object PRESENCE
 // differences are a ratchet: exactly PATH_PRESENCE_BUDGET objects, fail above, lower it below.
 const PATH_PRESENCE_BUDGET = 16;
-async function sourcePaths(obj: string): Promise<Set<string>> {
-  const tmp = await Deno.makeTempFile();
-  try {
-    await must(["objcopy", "-O", "binary", "--only-section=.rodata*", obj, tmp]);
-    const bytes = await Deno.readFile(tmp);
-    const found = new Set<string>();
-    let cur = "";
-    for (const c of bytes) {
-      if (c >= 0x20 && c < 0x7f) cur += String.fromCharCode(c);
-      else {
-        // A path has a `/`; without one it is the tail of another string (`_allocator.c`).
-        if (/\.(c|h)$/.test(cur) && /^[\w./-]+$/.test(cur) && cur.includes("/")) found.add(cur);
-        cur = "";
-      }
-    }
-    return found;
-  } finally {
-    await Deno.remove(tmp);
-  }
-}
 let pathPresence = 0;
 const ourPaths = new Map<string, Set<string>>();
 const upstreamPaths = new Set<string>();
