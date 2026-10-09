@@ -16,13 +16,27 @@ small. Modeled on zilc's `cmem/` (same author), which is modeled on wazmrt's.
 
 ---
 
-## ⏸️ PAUSED 2026-10-08 (night), owner: "we will pause here for today". RESUME HERE
+## ⏸️ PAUSED 2026-10-09 (night), owner: "update the project memory files and pause here for today". RESUME HERE
 
-- **Where things stand.** Step 2 has three pieces done and proven against upstream: the forwarder
-  generator (byte-identical to Ruby), musl's header install (byte-identical), and the stock half
-  of the runtime (libpas, crt objects, yolounwind) built by `zig build`, symbol-identical and
-  behaving identically: `tests/link` 12/12 variants, zilc's corpus 156/156. Nothing is open
-  mid-change. The working tree is clean, `main` = `origin/main`.
+- **Where things stand.** Step 2's stock-compiled runtime is done, and every piece is proven
+  against upstream's release, by symbols member by member (in order) and by behaviour:
+  - the forwarder generator and musl's header install (byte-identical);
+  - libpas, `filc_crt.o`/`filc_mincrt.o` and yolounwind (`zig build libpas`);
+  - yolo musl's static half (`zig build yolomusl`);
+  - compiler-rt (`zig build compiler-rt`).
+
+  In a static link every one of them is ours: `tests/link` 13/13 (12 identical to stock, plus
+  W-10's recorded departure), and zilc's corpus 156/156. Only the Fil-C-compiled libc and the
+  five fil-pizlo objects are still upstream's in that link. Nothing is open mid-change; the
+  working tree is clean and `main` = `origin/main` (`git status -sb` shows no ahead/behind).
+- **Upstream defects found and published** (`UPSTREAM-ISSUES.md`, only there):
+  - Fil-C 1 / W-7: the landing-pad `can_catch` panic. Cause confirmed: the pass emits a global's
+    getter ahead of the landing pad.
+  - Fil-C 2 / W-10: `_Float16` conversions are wrong because the release's libyolort was built by
+    GCC 11.4. zailc keeps the fix (owner), a departure pinned on both sides.
+- **Lesson repeated today (best-practices § 1):** a shell heredoc dropped backslashes three times
+  (regexes in two tools, one cmem line); each was caught by `deno check` or a read-back. Write
+  scripts and file content with the editor tools, never through a heredoc.
 - ✅ **2026-10-09: yolo musl's static half from `zig build yolomusl`.** `libyoloc.a` (1,343
   members, upstream's names in upstream's order), the five crt objects and `libyolom.a`, built by
   Zig's clang with configure's clang flags; upstream's release used GCC 12.3. Every member defines
@@ -47,10 +61,11 @@ small. Modeled on zilc's `cmem/` (same author), which is modeled on wazmrt's.
 - ✅ **2026-10-09:** `zailc-gen --version` prints build.zig.zon's version (one source, through
   `build_options`), the Zig that built it, and the Fil-C release its tables came from. CI checks
   the version on every push; the release workflow checks it against the tag.
-- **Open:** none. Next is step 2 item 2 (above).
-- 🧭 **Git state (2026-10-08, night):** `main` is PUSHED and follows the `--no-ff` rule. Every
-  push today ran green on GitHub (CI, including `deno check tools/`, and auto-tag with the gate
-  read as closed and the tag steps skipped). No tag, no release. 🚦 **The release gate
+- **Open:** none blocking. Not yet done and recorded where they belong: yolo musl's shared half
+  (resume item above); W-7's exact line in `FilPizlonator.cpp` (surmised: `scheduleChecks`).
+- 🧭 **Git state (2026-10-09, night):** `main` is PUSHED and follows the `--no-ff`
+  rule; merged branches are kept. Every push ran green on GitHub (CI, including `deno check
+  tools/`, and auto-tag with the gate read as closed and the tag steps skipped). No tag, no release. 🚦 **The release gate
   (`.github/release-gate`) is `closed`**: `main` is pushed as finished branches land and
   releases nothing; the owner opens the gate when the first release is due (next bullet;
   `releasing.md`). Check

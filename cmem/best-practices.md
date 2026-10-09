@@ -29,7 +29,10 @@ Selected 2026-10-08 (owner: "copy in the ones that are relevant to our specific 
   nothing.
 - **Files are written with the editor tools, never with shell heredocs.** A heredoc dropped one `\`
   from Zig's `\\` multiline-string prefix (zilc, 2026-09-18); binaryang lists four ways a shell
-  layer corrupts literal text.
+  layer corrupts literal text. **This includes edit SCRIPTS:** a Deno script piped in through a
+  heredoc lost the backslashes of the regexes it inserted, three times in one day (zailc,
+  2026-10-09: `link-run.ts`, `two-runtimes.ts`, a cmem line). `deno check` or a read-back caught
+  each one; write the script with the editor and run it from the file.
 - **Caches and outputs live in `~/zailc-work`**, not on the exFAT repo (`workarounds.md` W-2).
 - **Stopping a WSL command from Windows does not stop its Linux processes**; check `ps` in WSL
   after a timeout, and give long jobs a long timeout up front.
