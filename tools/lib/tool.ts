@@ -179,7 +179,9 @@ export async function mkdirp(p: string): Promise<void> {
 export async function rmrf(p: string): Promise<void> {
   await Deno.remove(p, { recursive: true }).catch(() => {});
 }
-export async function sha256(bytes: Uint8Array): Promise<string> {
+/** `BufferSource`, not `Uint8Array`: since TypeScript 5.7 a plain `Uint8Array` may sit on a
+ *  SharedArrayBuffer, which `digest` refuses, and that failed `deno check` on every tool. */
+export async function sha256(bytes: BufferSource): Promise<string> {
   const d = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
   return [...d].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
