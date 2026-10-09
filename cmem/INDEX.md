@@ -31,6 +31,9 @@ small. Modeled on zilc's `cmem/` (same author), which is modeled on wazmrt's.
 - 🎯 **First release = Fil-C fully in Zig, verified against zilc; the user installs ONLY Zig**
   (owner, 2026-10-08). No upstream-built library or compiler ships; the release tarball and Fil-C's
   clang are scaffolding and oracle only, each retired by a roadmap item. `design-decisions.md`.
+- 🐞 **Upstream defects are documented in full before any workaround or fix** (owner, 2026-10-08):
+  what, why it is a defect against upstream's own contract, how it was confirmed with upstream
+  alone; `workarounds.md` template, `tests/upstream/`, `UPSTREAM-ISSUES.md`. First entry: W-7.
 - ✅ **Step 2, link and run (2026-10-08, night):** `tools/runtime/link-run.ts` links each
   `tests/link/` program statically against upstream's runtime and against ours; 10/10 variants
   identical (traps, GC, threads, signals, C++ exceptions). Fixed on the way: `__FILE__` paths
