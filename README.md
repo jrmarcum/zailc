@@ -53,7 +53,10 @@ zailc/
 ├── build.zig, build.zig.zon   # Zig 0.15.2
 ├── src/gen/                   # the generators (step 2): sig.zig, signatures.zig (imported), forwarders.zig, main.zig
 ├── tools/                     # Deno tools: lib/tool.ts (shared), gen/import-signatures.ts, gen/verify-forwarders.ts
+├── tests/link/                # programs linked against upstream's runtime and ours (tools/runtime/link-run.ts)
+├── tests/upstream/            # one reproduction per upstream defect found (UPSTREAM-ISSUES.md)
 ├── cmem/                      # portable project memory: start at cmem/INDEX.md
+├── UPSTREAM-ISSUES.md         # defects found in Fil-C, Zig or zilc, for their maintainers
 └── third_party/               # staged upstream licences and the Component Ledger
 ```
 

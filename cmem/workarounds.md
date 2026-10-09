@@ -18,6 +18,28 @@ Every workaround gets an entry **when it is made**, with these headings: **Sympt
 (measured vs. surmised, kept apart), **Why the workaround is correct**, **Ruled out**, **How it was
 found**, **Recognising a relative**, **Cost and exit**, **Where**.
 
+**An upstream defect (in Zig, zilc or Fil-C) is documented in full BEFORE its workaround or fix**
+(owner, 2026-10-08: "if we find a defect in the upstream code whether zig or zilc or Fil-C, we will fully document what the defect is, why it is a defect, and how we confirmed it to be so. Then we will document our work around or fix to correct the defect found."). Its entry carries, in this order:
+
+1. **The defect.** What goes wrong, in which upstream, at which version and commit, with the exact
+   text and exit code, and the smallest program or input that shows it.
+2. **Why it is a defect.** The contract it breaks: a language or ABI specification, upstream's own
+   documentation, comments or assertions (quoted, with file and line), or the behaviour upstream
+   produces for the same input elsewhere (another optimisation level, the other runtime). "It
+   differs from what we expected" is not enough, and neither is "zailc behaves differently": a
+   difference only becomes an upstream defect once upstream is shown to break its own contract.
+3. **How it was confirmed.** Reproduced with the upstream ALONE (no zailc code in the build or
+   the run); the reduction and every control that does and does not trigger it; what was ruled
+   out; what is measured and what is still surmised, kept apart. The reproduction is committed
+   (`tests/upstream/`, one file per defect) and an entry for the maintainers goes in
+   `UPSTREAM-ISSUES.md`. For zilc (a sibling repo zailc never writes into), the note is drafted
+   for the zilc team and handed over.
+4. **What zailc does: a workaround or a fix**, with the headings above (why it is correct, ruled
+   out, cost and exit). While Fil-C's behaviour is the oracle, zailc REPRODUCES an upstream defect
+   and pins it with a test that flips when upstream fixes it; correcting it instead is a
+   departure from the oracle and needs a `design-decisions.md` row.
+5. **Reported.** Where and when it was reported upstream, or that it is not reported yet.
+
 ## Entries
 
 ### W-1. The generated banner names the Ruby script (2026-10-08)
@@ -105,16 +127,54 @@ found**, **Recognising a relative**, **Cost and exit**, **Where**.
 - **Recognising a relative.** Any text the runtime prints that the build's paths feed: debug
   info's file names (covered by the same flag), `__BASE_FILE__`, a generated file's `#line`.
 
-### W-7. Fil-C 0.686 panics in `landing_pad_impl` on `tests/link/exceptions.cpp` at -O1 (2026-10-08)
+### W-7. Fil-C 0.686: `landing_pad_impl` asserts `can_catch` when an inlined destructor writes a global (2026-10-08)
 
-- **Symptom.** `filc panic: src/libpas/filc_runtime.c:7611: ... landing_pad_impl ...: assertion
-  function_origin->can_catch failed.`, exit 133.
-- **Class.** UPSTREAM behaviour, measured with the release tarball alone (no zailc piece):
-  -O1 and -O2 panic, static and dynamic; -O0 passes; a minimal `throw 42` / `catch` passes at
-  -O1. Not reduced yet: the program has a throw through ten frames with destructors, a rethrow
-  (`throw;`), and libc++ containers.
-- **What zailc does.** Reproduces it: `exceptions.cpp` has an -O0 variant (exit 0) and an -O1
-  variant (exit 133, the panic text compared). zailc is right when it matches upstream (oracle
-  rule); a fix would be a departure, recorded in `design-decisions.md` when made.
-- **Exit.** Reduce it (which construct), check zilc and upstream's issues, and report it upstream.
-- **Where.** `tests/link/exceptions.cpp`, `tools/runtime/link-run.ts`.
+**Class: upstream defect (Fil-C).** Found by `link-run.ts` (`tests/link/exceptions.cpp`),
+reduced and confirmed the same night.
+
+1. **The defect.** Fil-C 0.686 (release tarball `filc-0.686-linux-x86_64`, commit `163fae5`)
+   aborts a valid C++ program while unwinding:
+   `filc panic: src/libpas/filc_runtime.c:7611: _Bool landing_pad_impl(...): assertion
+   function_origin->can_catch failed.`, exit 133. Smallest form (`tests/upstream/filc-0.686-landing-pad-can-catch.cpp`):
+   `static int n = 0; struct G { ~G() { n++; } }; static void t() { G g; throw 1; }`, with
+   `main` catching `int`. At -O1 and -O2 it panics; at -O0 it prints `caught n=1` and exits 0.
+2. **Why it is a defect.**
+   - The program is well-formed C++ with defined behaviour. `throw 1` must run `~G` and reach
+     the `catch (int)` in `main` (C++ [except.throw], [except.ctor]). -O0 does exactly that, so an
+     optimisation level changes the meaning of a correct program.
+   - Upstream's runtime says this state cannot happen. `landing_pad_impl`
+     (`libpas/src/libpas/filc_runtime.c`, just above line 7611): *"If the frame didn't support
+     catching, then we wouldn't have gotten here. Only frames that support unwinding call
+     landing_pads."* `filc_runtime.h` (the `can_catch` field, around line 502): *"All functions
+     generated by the compiler have can_catch == true for the function origin used at
+     callsites."* A `PAS_ASSERT` firing is upstream's own statement that its invariant broke.
+3. **How it was confirmed.**
+   - **Upstream alone:** every run used only the release tarball's `clang++` and its own runtime
+     (no zailc object, static and dynamic links both), so zailc is not involved. zailc's runtime
+     then reproduces it identically (`link-run.ts`), which is the oracle behaving correctly.
+   - **Reduction** (all with the tarball, -O1, sources in `~/zailc-work/reduce-w7`): the ten-frame
+     throw with an empty destructor passes; a rethrow (`throw;`) alone passes; a deep throw
+     without destructors passes; one frame with an EMPTY destructor passes. A destructor that
+     increments a GLOBAL panics at recursion depth 0, 1, 3 and through an intermediate frame, at
+     -O1 and -O2.
+   - **Controls that pass at -O1:** the same destructor marked `noinline`; the destructor writing
+     through a pointer to the caller's local instead of a global; everything at -O0.
+   - **Measured:** the trigger is an INLINED destructor that stores to a global, in a frame an
+     exception unwinds through; optimisation level matters. **Surmised, not verified:** the pass
+     gives that inlined store (or a pollcheck next to it) a non-callsite, `!can_catch` origin,
+     which is the frame's current origin when the throwing call unwinds. The next step to verify
+     it is to read the pass's output IR for the reproduction and find which origin the call
+     carries.
+   - **Ruled out:** zailc's runtime (upstream's own runtime panics the same way); static linking
+     (dynamic panics too); the C++ library containers and the rethrow in the original test.
+4. **What zailc does.** Reproduces it, as the oracle rule requires: `tests/link/exceptions.cpp`
+   and `tests/link/eh_dtor_writes_global.cpp` each have an -O0 variant (exit 0) and an -O1 variant
+   (exit 133, upstream's panic text compared). No workaround is needed, because nothing in zailc
+   depends on the behaviour. **Fix:** none yet. The defect is in the pass or its origin metadata,
+   which zailc rewrites in step 3. Fixing it there departs from the oracle and needs a
+   `design-decisions.md` row, plus the -O1 expectations flipped to 0 in the same commit.
+   **Exit:** upstream fixes it (the -O1 variants then fail and are flipped), or zailc's pass does.
+5. **Reported.** Not yet. The maintainers' entry is drafted in `UPSTREAM-ISSUES.md` § Fil-C 1.
+
+- **Where.** `tests/upstream/filc-0.686-landing-pad-can-catch.cpp`, `UPSTREAM-ISSUES.md`,
+  `tests/link/eh_dtor_writes_global.cpp`, `tests/link/exceptions.cpp`, `tools/runtime/link-run.ts`.
