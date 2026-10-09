@@ -30,6 +30,10 @@
 
 const Sig = @import("sig.zig").Sig;
 
+/// The Fil-C release these tables were imported from (`zailc-gen --version` prints them).
+pub const filc_version = "0.686";
+pub const filc_commit = "163fae598eaf249b74065b0156f3a7e7ba8c0e5a";
+
 /// `addSig`: runtime functions callable from pizlonated code (`filc_native_*`).
 pub const natives = [_]Sig{
     .{ .rets = "filc_ptr", .name = "zgc_alloc", .args = &.{"size_t"} },
