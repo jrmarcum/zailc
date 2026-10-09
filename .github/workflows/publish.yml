@@ -105,6 +105,12 @@ jobs:
           tar -C "$RUNNER_TEMP/smoke" -xzf "$DIST/zailc-$TAG-x86_64-linux-musl.tar.gz"
           "$RUNNER_TEMP/smoke/zailc-$TAG-x86_64-linux-musl/zailc-gen" header "$RUNNER_TEMP/smoke/filc_native.h"
           echo "8dbba1005797433f44f5487c6edd43d4ec17193e22cc1b0d257166aa98d15510  $RUNNER_TEMP/smoke/filc_native.h" | sha256sum -c -
+          # The shipped binary must print the version being released (binaryang's checkEntry).
+          GOT="$("$RUNNER_TEMP/smoke/zailc-$TAG-x86_64-linux-musl/zailc-gen" --version | head -1)"
+          if [ "$GOT" != "zailc-gen ${TAG#v}" ]; then
+            echo "::error::the shipped zailc-gen says '$GOT', the release is $TAG"
+            exit 1
+          fi
 
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v2

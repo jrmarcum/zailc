@@ -53,3 +53,11 @@ jobs:
           zig build
           ./zig-out/bin/zailc-gen header "$RUNNER_TEMP/filc_native.h"
           echo "8dbba1005797433f44f5487c6edd43d4ec17193e22cc1b0d257166aa98d15510  $RUNNER_TEMP/filc_native.h" | sha256sum -c -
+          # --version must name build.zig.zon's version (cmem/releasing.md § preflight).
+          V="$(sed -n 's/^    \.version = "\([^"]*\)",$/\1/p' build.zig.zon)"
+          GOT="$(./zig-out/bin/zailc-gen --version | head -1)"
+          ./zig-out/bin/zailc-gen --version
+          if [ "$GOT" != "zailc-gen $V" ]; then
+            echo "::error::zailc-gen --version says '$GOT', build.zig.zon says '$V'"
+            exit 1
+          fi

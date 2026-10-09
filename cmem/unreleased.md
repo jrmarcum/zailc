@@ -21,7 +21,8 @@ header.
 
 - `zailc-gen`: Zig port of Fil-C's `generate_pizlonated_forwarders.rb` (v0.686, 453 native + 13
   user signatures). It writes `filc_native.h` and `filc_native_forwarders.c`, byte-identical to
-  Ruby's output (`testing.md`).
+  Ruby's output (`testing.md`). `zailc-gen --version` prints zailc's version, the Zig that built
+  it, and the Fil-C release its tables come from.
 - `zailc-gen musl-headers <musl-src> <out-dir> [arch]`: musl's `make install-headers` in Zig
   (the `yolo-include` tree libpas compiles against), byte-identical to upstream's (219 files).
 - `zig build libpas -Dfilc-src=<Fil-C tree> [-Dpizfix=<pizfix>]`: the stock-compiled half of

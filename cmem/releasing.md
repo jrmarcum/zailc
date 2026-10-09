@@ -38,7 +38,8 @@ this repo concurrently: re-read `git log` before merging into `main`.
 
 - **Plain semver, `MAJOR.MINOR.PATCH`, starting at `0.1.0`.** Tags are `vX.Y.Z`.
 - **The upstreams are NOT in the number.** Fil-C's version and commit and the Zig version are
-  recorded in `upstream.md` and, once it exists, printed by `--version`.
+  recorded in `upstream.md` and printed by `zailc-gen --version` (the Zig that built it; the Fil-C
+  release and commit its forwarder tables were imported from).
 - **Sub-version capped at 9** (binaryang's rule): `0.1.9 → 0.2.0`, `0.9.9 → 1.0.0`, major uncapped
   (`9.9.9 → 10.0.0`).
 - **PATCH is the default.** A release is a patch unless it breaks something.
@@ -49,10 +50,12 @@ this repo concurrently: re-read `git log` before merging into `main`.
   "finally works" and so starts rejecting what it used to accept is still a behaviour change, and
   it goes in the release notes). Check who the break actually reaches rather than assuming.
 - 🔧 **Where the number lives:** `build.zig.zon` `.version`, and only there. Edit it with
-  `tools/release/bump.ts`, not by hand. When a binary prints `--version`, it must read the same
-  value (pass it from `build.zig` as a build option, so there is ONE source). Then `publish.yml`'s
-  smoke step should check the printed version too (binaryang's `checkEntry`). ⏳ `zailc-gen` has no
-  `--version` yet, so today's preflight runs `zailc-gen header` instead.
+  `tools/release/bump.ts`, not by hand. `zailc-gen --version` prints it from that one source:
+  `build.zig` reads the `.version` line (the same one-line rule as auto-tag.yml and bump.ts; zero
+  or two lines fail the build) and passes it as `build_options.version`. The output's first line
+  is exactly `zailc-gen <version>`. CI checks it against build.zig.zon on every push, and
+  `publish.yml` checks the shipped binary's against the tag (binaryang's `checkEntry`). Done
+  2026-10-09.
 
 ## RULE — the version line ARMS a release; never bump it in the same change that merges
 
@@ -114,9 +117,9 @@ belong to the next minor:
 
 | workflow | trigger | does |
 | --- | --- | --- |
-| `ci.yml` | push to `main`, PRs | Zig 0.15.2; `zig fmt --check`; `zig build test` (SHA-256 against Ruby's output); smoke: `zailc-gen header` must hash to Ruby's header |
+| `ci.yml` | push to `main`, PRs | Zig 0.15.2; `zig fmt --check`; `zig build test` (SHA-256 against Ruby's output); smoke: `zailc-gen header` must hash to Ruby's header, and `zailc-gen --version`'s first line must be `zailc-gen <build.zig.zon version>` |
 | `auto-tag.yml` | push to `main` | reads the release gate first (`tools/release/gate.ts`): **closed = a notice, green, nothing else**; open: reads `.version` (fails if the line is missing or doubled); if `v<version>` has no tag, pushes the annotated tag and **calls `publish.yml`** |
-| `publish.yml` | `push: tags: [v*]`, or `workflow_call` from auto-tag | **refuses unless the release gate is open at the tagged commit** (before any build or upload); checks the tag matches `build.zig.zon`, runs the gates, builds `zailc-gen` (`ReleaseSafe`, `x86_64-linux-musl`), smoke-tests the binary FROM THE ARCHIVE, attests build provenance, creates the GitHub Release with the archives and `SHA256SUMS`; notes from `CHANGELOG.md` § X.Y.Z, else generated |
+| `publish.yml` | `push: tags: [v*]`, or `workflow_call` from auto-tag | **refuses unless the release gate is open at the tagged commit** (before any build or upload); checks the tag matches `build.zig.zon`, runs the gates, builds `zailc-gen` (`ReleaseSafe`, `x86_64-linux-musl`), smoke-tests the binary FROM THE ARCHIVE (Ruby's header hash, and `--version` naming the tag's version), attests build provenance, creates the GitHub Release with the archives and `SHA256SUMS`; notes from `CHANGELOG.md` § X.Y.Z, else generated |
 
 - **Release binaries are built by `publish.yml` only, never locally and uploaded by hand.** This is
   binaryang's "never run `deno publish` locally": a hand-uploaded binary carries no attestation,

@@ -17,6 +17,11 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
         }),
     });
+    // `zailc-gen --version`: the version comes from build.zig.zon, the one place it lives
+    // (cmem/releasing.md), read by the same rule as auto-tag.yml and tools/release/bump.ts.
+    const options = b.addOptions();
+    options.addOption([]const u8, "version", zonVersion(b));
+    gen.root_module.addOptions("build_options", options);
     b.installArtifact(gen);
 
     // `zig build gen -- header out.h` / `zig build gen -- forwarders out.c` / `... musl-headers …`
@@ -50,6 +55,22 @@ pub fn build(b: *std.Build) void {
     } else {
         libpas_step.dependOn(&b.addFail("zig build libpas needs -Dfilc-src=<path to a Fil-C v0.686 tree>").step);
     }
+}
+
+/// `.version` from build.zig.zon: exactly one line `    .version = "X.Y.Z",`, or the build fails.
+fn zonVersion(b: *std.Build) []const u8 {
+    const text = b.build_root.handle.readFileAlloc(b.allocator, "build.zig.zon", 1 << 20) catch |err|
+        std.debug.panic("cannot read build.zig.zon: {s}", .{@errorName(err)});
+    const prefix = "    .version = \"";
+    var found: ?[]const u8 = null;
+    var lines = std.mem.splitScalar(u8, text, '\n');
+    while (lines.next()) |raw| {
+        const line = std.mem.trimRight(u8, raw, "\r");
+        if (!std.mem.startsWith(u8, line, prefix) or !std.mem.endsWith(u8, line, "\",")) continue;
+        if (found != null) std.debug.panic("build.zig.zon: more than one .version line", .{});
+        found = line[prefix.len .. line.len - 2];
+    }
+    return found orelse std.debug.panic("build.zig.zon: no `    .version = \"X.Y.Z\",` line", .{});
 }
 
 /// The settings every stock-compiled runtime object shares: upstream compiles them with its
